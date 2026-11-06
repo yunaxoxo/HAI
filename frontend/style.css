@@ -39,6 +39,7 @@ main{flex:1;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap
 .result-content{flex:1;min-height:300px;max-height:calc(100vh - 210px);overflow:auto}
 .empty{padding:28px 18px;color:var(--muted);line-height:1.6}
 pre.out,pre.tree{margin:0;padding:14px;font:13px/1.6 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}
+.prompt-row{display:flex;gap:8px;align-items:center;padding:0 14px 14px;font:13px var(--mono)}.prompt-row label{display:flex;gap:6px;align-items:center;flex:1;min-width:0}.prompt-row input{flex:1;min-width:0;background:var(--bg);border:1px solid var(--accent);border-radius:4px;padding:6px 8px;font:13px var(--mono);color:var(--text)}
 .error-box{margin:12px;padding:10px 12px;border:1px solid var(--error);border-left-width:4px;border-radius:4px;background:var(--error-bg);font:13px/1.5 var(--mono);overflow-wrap:anywhere}
 .error-box b{color:var(--error)}
 table{width:100%;border-collapse:collapse;font:12px var(--mono)}

@@ -20,6 +20,7 @@ const PUNCTUATION = ['NEWLINE', 'PLUS', 'COMMA', 'EXCLAMATION'];
 let revision = 0;
 let busy = false;
 let tabTrapReleased = false;
+let liveInputs = [];
 
 // --- Small helpers ---
 function setStatus(label, message, error = false) {
@@ -106,6 +107,7 @@ function resetResults() {
 
 function changed() {
   revision++;
+  liveInputs = [];
   updateEditor();
   resetResults();
   setStatus('EDITED', 'Code changed. Tokenize, Analyze, or Run to refresh the results.');
@@ -194,10 +196,30 @@ async function analyze() {
   }
 }
 
-async function run() {
+function promptRow(prompt) {
+  const row = document.createElement('div');
+  row.className = 'prompt-row';
+  const label = document.createElement('label');
+  label.textContent = prompt;
+  const field = document.createElement('input');
+  field.type = 'text';
+  field.autocomplete = 'off';
+  field.setAttribute('aria-label', `Answer for ${prompt.trim()}`);
+  const send = document.createElement('button');
+  send.textContent = 'Send';
+  const submit = () => { liveInputs.push(field.value); run(false); };
+  field.addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); submit(); } });
+  send.addEventListener('click', submit);
+  label.append(field);
+  row.append(label, send);
+  return row;
+}
+
+async function run(fresh = true) {
+  if (fresh) liveInputs = [];
   setStatus('RUNNING', 'Running (stops after 5 seconds)…');
-  const inputs = stdin.value ? stdin.value.split('\n') : [];
-  const result = await request('/api/run', {inputs});
+  const presets = stdin.value ? stdin.value.split('\n') : [];
+  const result = await request('/api/run', {inputs: [...presets, ...liveInputs]});
   if (!result) return;
   const children = [];
   if (result.output) {
@@ -205,14 +227,18 @@ async function run() {
     out.className = 'out';
     out.textContent = result.output;
     children.push(out);
-  } else if (result.ok) {
+  } else if (result.ok && !result.needs_input) {
     children.push(empty('The program finished without printing anything.'));
   }
   if (!result.ok) children.push(errorBox(result.error));
+  if (result.needs_input) children.push(promptRow(result.prompt));
   panels.output.replaceChildren(...children);
   showSymbols(result.symbols);
   selectTab('output');
-  if (result.ok) setStatus('DONE', 'Program finished.');
+  if (result.needs_input) {
+    setStatus('WAITING', `The program is asking for input (${result.prompt.trim()}). Type a value and press Enter.`);
+    panels.output.querySelector('.prompt-row input').focus();
+  } else if (result.ok) setStatus('DONE', 'Program finished.');
   else setStatus(`${result.error.stage.toUpperCase()} ERROR`, result.error.message, true);
 }
 
@@ -250,7 +276,7 @@ document.addEventListener('keydown', event => {
 });
 document.querySelector('#tokenize').addEventListener('click', tokenizeOnly);
 document.querySelector('#analyze').addEventListener('click', analyze);
-document.querySelector('#run').addEventListener('click', run);
+document.querySelector('#run').addEventListener('click', () => run());
 document.querySelector('#clear').addEventListener('click', () => { resetResults(); setStatus('READY', 'Results cleared.'); });
 document.querySelector('#load').addEventListener('click', () => {
   if (source.value.trim() && !confirm('Replace the current code with this example?')) return;
