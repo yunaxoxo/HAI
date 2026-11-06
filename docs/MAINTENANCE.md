@@ -51,7 +51,8 @@ this review.
   contract; lexical errors are `SyntaxError` subclasses carrying line/column.
 - Workbench: `app.py` gained `/api/tokenize` and `/api/run`; `/api/analyze` is
   unchanged. Run executes `interpreter.py` in a child process with a 5-second
-  limit, so the interpreter itself is untouched. Checks live in `test_workbench.py`.
+  limit, so the interpreter itself is untouched. `GIMMEH` is live: the run stops with
+  `needs_input`, the browser asks, and the program reruns with the answers so far. Checks live in `test_workbench.py`.
 - Supplied programs: all 10 tokenize. 4 parse as-is (01, 02, 06, 09); with
   `PLUS` tokens ignored, 9 parse (see `docs/PARSER_FINDINGS.md`).
 - Not verified: rendered appearance in a browser, and mobile layouts.

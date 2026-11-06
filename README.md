@@ -49,12 +49,16 @@ Open http://127.0.0.1:8000 in your browser. Stop the server with Ctrl+C.
 - Write LOLCODE or load one of the included examples.
 - **Tokenize** shows the lexer output; click a token row to jump to its line.
 - **Analyze** adds the syntax tree, or the lexer/parser error.
-- **Run** executes the program and shows its output and variables.
-  `GIMMEH` reads from the *Input* box (one value per line). Runs stop after 5 seconds.
+- **Run** executes the program and shows its output and variables. When the
+  program reaches `GIMMEH`, the Output panel shows a live prompt: type a value and
+  press Enter. The *Preset input* box is optional and answers prompts in advance.
+  Runs stop after 5 seconds.
 - Ctrl+Enter (Cmd+Enter on macOS) runs. In the editor, Esc then Tab moves focus out.
 - Open a `.lol` or `.txt` file, and save your editor contents as `playground.lol`.
 
-Run uses the command-line interpreter in a separate process. Keep a saved copy
+Run uses the command-line interpreter in a separate process. To ask for input
+live, the program is rerun from the start with each new answer added (no server
+sessions), so every answer is replayed deterministically. Keep a saved copy
 of your code before closing or refreshing the page. The server listens on
 localhost for local use.
 

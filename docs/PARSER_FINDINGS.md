@@ -11,7 +11,7 @@ programs. Neither was changed by the lexer/frontend work.
   but `parse_print` does not consume it.
 - Evidence: with `PLUS` tokens filtered out, these five programs parse.
 - Suggested fix: accept an optional `PLUS` between `VISIBLE` operands.
-- Status: confirmed.
+- Status: **open**, not fixed yet (confirmed bug, needs the parser owner).
 
 ## 2. A bare variable on its own line is rejected (parser)
 
@@ -19,10 +19,10 @@ programs. Neither was changed by the lexer/frontend work.
 - Error: `Unexpected identifier 'choice' statement.`
 - Expected: an expression statement that sets `IT`, which `WTF?` then reads.
 - Suggested fix: allow a variable reference as a statement.
-- Status: confirmed for parsing; the runtime effect on `IT` was not tested.
+- Status: **open**, not fixed yet (confirmed for parsing; the runtime effect on `IT` was not tested).
 
 ## 3. `NOOB` is lexed as `TYPE` (contract note)
 
 The parser consumes `TYPE` for cast targets, so the lexer keeps `NOOB` as
-`TYPE`. Changing it needs both sides to agree.
+`TYPE`. Not a bug; changing it would need both sides to agree.
 
