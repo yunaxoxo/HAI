@@ -1,123 +1,231 @@
+// --- Elements ---
 const source = document.querySelector('#source');
+const stdin = document.querySelector('#stdin');
 const lines = document.querySelector('#lines');
-const analyzeButton = document.querySelector('#analyze');
-const tokensPanel = document.querySelector('#tokens-panel');
-const treePanel = document.querySelector('#tree-panel');
+const buttons = ['#tokenize', '#analyze', '#run'].map(id => document.querySelector(id));
+const panels = {
+  output: document.querySelector('#output-panel'),
+  tokens: document.querySelector('#tokens-panel'),
+  tree: document.querySelector('#tree-panel'),
+  symbols: document.querySelector('#symbols-panel')
+};
 const examples = {
   hello: 'HAI\n\nBTW My first LOLCODE program\nVISIBLE "HAI, WORLD!"\n\nKTHXBYE\n',
-  math: 'HAI\n\nWAZZUP\n    I HAS A first ITZ 12\n    I HAS A second ITZ 8\nBUHBYE\n\nVISIBLE "The sum is: " SUM OF first AN second\n\nKTHXBYE\n',
-  conditional: 'HAI\n\nBOTH SAEM 5 AN 5\nO RLY?\n    YA RLY\n        VISIBLE "They match!"\n    NO WAI\n        VISIBLE "Try again."\nOIC\n\nKTHXBYE\n'
+  math: 'HAI\n\nWAZZUP\n    I HAS A first ITZ 12\n    I HAS A second ITZ 8\nBUHBYE\n\nVISIBLE SUM OF first AN second\n\nKTHXBYE\n',
+  conditional: 'HAI\n\nBOTH SAEM 5 AN 5\nO RLY?\n    YA RLY\n        VISIBLE "They match!"\n    NO WAI\n        VISIBLE "Try again."\nOIC\n\nKTHXBYE\n',
+  input: 'HAI\n\nWAZZUP\n    I HAS A age\nBUHBYE\n\nGIMMEH age\nVISIBLE SUM OF age AN 1\n\nKTHXBYE\n'
 };
+const LITERALS = ['NUMBR', 'NUMBAR', 'YARN', 'TROOF'];
+const PUNCTUATION = ['NEWLINE', 'PLUS', 'COMMA', 'EXCLAMATION'];
 let revision = 0;
-let analyzing = false;
+let busy = false;
+let tabTrapReleased = false;
 
-function setStatus(title, message, error = false) {
-  document.querySelector('.status').classList.toggle('error', error);
-  document.querySelector('#status-icon').textContent = error ? '!' : '○';
-  document.querySelector('#status-title').textContent = title;
+// --- Small helpers ---
+function setStatus(label, message, error = false) {
+  document.querySelector('#status').classList.toggle('error', error);
+  document.querySelector('#status-label').textContent = label;
   document.querySelector('#status-message').textContent = message;
 }
 
+function empty(message) {
+  const box = document.createElement('div');
+  box.className = 'empty';
+  box.textContent = message;
+  return box;
+}
+
+function errorBox(error) {
+  const box = document.createElement('div');
+  box.className = 'error-box';
+  const label = document.createElement('b');
+  label.textContent = `ERROR · ${error.stage.toUpperCase()}`;
+  box.append(label, document.createElement('br'), error.message);
+  return box;
+}
+
+function makeTable(headings, rows, onRowClick) {
+  const table = document.createElement('table');
+  const head = table.createTHead().insertRow();
+  for (const heading of headings) {
+    const cell = document.createElement('th');
+    cell.scope = 'col';
+    cell.textContent = heading;
+    head.append(cell);
+  }
+  const body = table.createTBody();
+  for (const row of rows) {
+    const tableRow = body.insertRow();
+    row.forEach(cell => {
+      const td = tableRow.insertCell();
+      td.textContent = cell.text;
+      if (cell.className) td.className = cell.className;
+    });
+    if (onRowClick) {
+      tableRow.className = 'jump';
+      tableRow.title = 'Jump to this line';
+      tableRow.addEventListener('click', () => onRowClick(row));
+    }
+  }
+  return table;
+}
+
+function selectTab(name) {
+  document.querySelectorAll('[role="tab"]').forEach(tab => {
+    const selected = tab.id === `${name}-tab`;
+    tab.setAttribute('aria-selected', String(selected));
+    tab.tabIndex = selected ? 0 : -1;
+    document.getElementById(tab.getAttribute('aria-controls')).hidden = !selected;
+  });
+}
+
+function jumpToLine(lineNumber) {
+  const all = source.value.split('\n');
+  const start = all.slice(0, lineNumber - 1).join('\n').length + (lineNumber > 1 ? 1 : 0);
+  source.focus();
+  source.setSelectionRange(start, start + (all[lineNumber - 1] || '').length);
+  source.scrollTop = Math.max(0, (lineNumber - 3) * 22);
+  updateEditor();
+}
+
+// --- Editor ---
 function updateEditor() {
-  lines.textContent = source.value.split('\n').map((_, i) => i + 1).join('\n');
+  lines.textContent = source.value.split('\n').map((_, index) => index + 1).join('\n');
   const before = source.value.slice(0, source.selectionStart).split('\n');
   document.querySelector('#position').textContent = `Ln ${before.length}, Col ${before.at(-1).length + 1}`;
   lines.scrollTop = source.scrollTop;
 }
 
-function changed() {
-  revision++;
-  updateEditor();
-  setStatus('Code changed.', 'Analyze again to refresh the results.');
-  tokensPanel.replaceChildren(emptyMessage('Analyze your updated code to see its tokens.'));
-  treePanel.replaceChildren(emptyMessage('Analyze your updated code to see its syntax tree.'));
+function resetResults() {
+  panels.output.replaceChildren(empty('Run your program to see its output here.'));
+  panels.tokens.replaceChildren(empty('Tokenize or analyze to list the lexer output.'));
+  panels.tree.replaceChildren(empty('Analyze or run a valid program to see its syntax tree.'));
+  panels.symbols.replaceChildren(empty('Run your program to see its variables.'));
   document.querySelector('#token-count').textContent = '0';
 }
 
-function emptyMessage(message) {
-  const container = document.createElement('div');
-  container.className = 'empty';
-  const text = document.createElement('p');
-  text.textContent = message;
-  container.append(text);
-  return container;
+function changed() {
+  revision++;
+  updateEditor();
+  resetResults();
+  setStatus('EDITED', 'Code changed. Tokenize, Analyze, or Run to refresh the results.');
 }
 
+// --- Rendering ---
 function showTokens(tokens) {
   document.querySelector('#token-count').textContent = tokens.length;
   if (!tokens.length) {
-    tokensPanel.replaceChildren(emptyMessage('No tokens to display.'));
+    panels.tokens.replaceChildren(empty('The lexer produced no tokens.'));
     return;
   }
-  const table = document.createElement('table');
-  const head = table.createTHead().insertRow();
-  for (const label of ['LINE', 'TOKEN', 'LEXEME']) {
-    const cell = document.createElement('th');
-    cell.scope = 'col';
-    cell.textContent = label;
-    head.append(cell);
+  const rows = tokens.map(([kind, lexeme, line]) => {
+    const className = LITERALS.includes(kind) ? 'lit' : PUNCTUATION.includes(kind) ? 'punct' : kind === 'IDENTIFIER' ? 'ident' : 'kw';
+    return [{text: line}, {text: kind, className}, {text: lexeme === '\n' ? '↵' : lexeme}];
+  });
+  panels.tokens.replaceChildren(makeTable(['LINE', 'TOKEN', 'LEXEME'], rows, row => jumpToLine(Number(row[0].text))));
+}
+
+function showTree(ast) {
+  const tree = document.createElement('pre');
+  tree.className = 'tree';
+  tree.textContent = JSON.stringify(ast, null, 2);
+  panels.tree.replaceChildren(tree);
+}
+
+function showSymbols(symbols) {
+  if (!symbols.length) {
+    panels.symbols.replaceChildren(empty('No variables were set.'));
+    return;
   }
-  const body = table.createTBody();
-  for (const [type, value, line] of tokens) {
-    const row = body.insertRow();
-    for (const text of [line, type, value === '\n' ? '↵' : value]) {
-      row.insertCell().textContent = text;
-    }
+  const rows = symbols.map(item => [{text: item.name, className: 'kw'}, {text: item.type}, {text: item.value}]);
+  panels.symbols.replaceChildren(makeTable(['NAME', 'TYPE', 'VALUE'], rows));
+}
+
+// --- Requests ---
+async function request(endpoint, extra = {}) {
+  if (busy) return null;
+  busy = true;
+  buttons.forEach(button => { button.disabled = true; });
+  const current = revision;
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({source: source.value, ...extra})
+    });
+    const result = await response.json();
+    if (current !== revision) return null;
+    if (!response.ok) throw new Error(result.message || 'The request failed.');
+    return result;
+  } catch (error) {
+    if (current === revision) setStatus('OFFLINE', `${error.message} Is the Python server still running?`, true);
+    return null;
+  } finally {
+    busy = false;
+    buttons.forEach(button => { button.disabled = false; });
   }
-  tokensPanel.replaceChildren(table);
+}
+
+async function tokenizeOnly() {
+  setStatus('WORKING', 'Reading tokens…');
+  const result = await request('/api/tokenize');
+  if (!result) return;
+  showTokens(result.tokens);
+  selectTab('tokens');
+  if (result.ok) setStatus('TOKENS OK', `${result.tokens.length} tokens from the lexer.`);
+  else {
+    setStatus('LEXER ERROR', result.error.message, true);
+    if (result.error.line) jumpToLine(result.error.line);
+  }
 }
 
 async function analyze() {
-  if (analyzing) return;
-  analyzing = true;
-  analyzeButton.disabled = true;
-  const currentRevision = revision;
-  setStatus('Analyzing…', 'Reading tokens and building your syntax tree.');
-  try {
-    const response = await fetch('/api/analyze', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({source: source.value})
-    });
-    const result = await response.json();
-    if (currentRevision !== revision) return;
-    if (!response.ok) throw new Error(result.message || 'Analysis request failed.');
-    showTokens(result.tokens);
-    if (result.ok) {
-      const tree = document.createElement('pre');
-      tree.className = 'tree';
-      tree.textContent = JSON.stringify(result.ast, null, 2);
-      treePanel.replaceChildren(tree);
-      setStatus('Syntax looks good.', `${result.tokens.length} tokens · ${result.ast.body.length} top-level statements · ${result.ast.functions.length} functions. Your program is ready for the next stage.`);
-    } else {
-      treePanel.replaceChildren(emptyMessage('Fix the syntax error and analyze again to build the tree.'));
-      setStatus(`${result.error.stage === 'lexer' ? 'Lexer' : 'Parser'} error`, result.error.message, true);
-    }
-  } catch (error) {
-    if (currentRevision === revision) {
-      setStatus('Could not analyze code.', `${error.message} Make sure the Python server is running.`, true);
-    }
-  } finally {
-    analyzing = false;
-    analyzeButton.disabled = false;
+  setStatus('WORKING', 'Tokenizing and parsing…');
+  const result = await request('/api/analyze');
+  if (!result) return;
+  showTokens(result.tokens);
+  if (result.ok) {
+    showTree(result.ast);
+    selectTab('tree');
+    setStatus('SYNTAX OK', `${result.tokens.length} tokens · ${result.ast.body.length} top-level statements · ${result.ast.functions.length} functions.`);
+  } else {
+    panels.tree.replaceChildren(errorBox(result.error));
+    selectTab('tree');
+    setStatus(`${result.error.stage.toUpperCase()} ERROR`, result.error.message, true);
   }
 }
 
-const tabs = [...document.querySelectorAll('[role="tab"]')];
-function selectTab(tab) {
-  tabs.forEach(item => {
-    const selected = item === tab;
-    item.setAttribute('aria-selected', String(selected));
-    item.tabIndex = selected ? 0 : -1;
-    document.getElementById(item.getAttribute('aria-controls')).hidden = !selected;
-  });
+async function run() {
+  setStatus('RUNNING', 'Running (stops after 5 seconds)…');
+  const inputs = stdin.value ? stdin.value.split('\n') : [];
+  const result = await request('/api/run', {inputs});
+  if (!result) return;
+  const children = [];
+  if (result.output) {
+    const out = document.createElement('pre');
+    out.className = 'out';
+    out.textContent = result.output;
+    children.push(out);
+  } else if (result.ok) {
+    children.push(empty('The program finished without printing anything.'));
+  }
+  if (!result.ok) children.push(errorBox(result.error));
+  panels.output.replaceChildren(...children);
+  showSymbols(result.symbols);
+  selectTab('output');
+  if (result.ok) setStatus('DONE', 'Program finished.');
+  else setStatus(`${result.error.stage.toUpperCase()} ERROR`, result.error.message, true);
 }
+
+// --- Events ---
+const tabs = [...document.querySelectorAll('[role="tab"]')];
 tabs.forEach((tab, index) => {
-  tab.addEventListener('click', () => selectTab(tab));
+  tab.addEventListener('click', () => selectTab(tab.id.replace('-tab', '')));
   tab.addEventListener('keydown', event => {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault();
-    const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
-    selectTab(tabs[next]);
+    const step = event.key === 'ArrowRight' ? 1 : -1;
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + step + tabs.length) % tabs.length;
+    selectTab(tabs[next].id.replace('-tab', ''));
     tabs[next].focus();
   });
 });
@@ -126,19 +234,24 @@ source.addEventListener('click', updateEditor);
 source.addEventListener('keyup', updateEditor);
 source.addEventListener('scroll', () => { lines.scrollTop = source.scrollTop; });
 source.addEventListener('keydown', event => {
-  if (event.key === 'Tab') {
+  if (event.key === 'Escape') { tabTrapReleased = true; return; }
+  if (event.key === 'Tab' && !tabTrapReleased && !event.shiftKey) {
     event.preventDefault();
     source.setRangeText('    ', source.selectionStart, source.selectionEnd, 'end');
     changed();
   }
+  tabTrapReleased = false;
 });
 document.addEventListener('keydown', event => {
   if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
     event.preventDefault();
-    analyze();
+    run();
   }
 });
-analyzeButton.addEventListener('click', analyze);
+document.querySelector('#tokenize').addEventListener('click', tokenizeOnly);
+document.querySelector('#analyze').addEventListener('click', analyze);
+document.querySelector('#run').addEventListener('click', run);
+document.querySelector('#clear').addEventListener('click', () => { resetResults(); setStatus('READY', 'Results cleared.'); });
 document.querySelector('#load').addEventListener('click', () => {
   if (source.value.trim() && !confirm('Replace the current code with this example?')) return;
   source.value = examples[document.querySelector('#example').value];
@@ -154,7 +267,7 @@ document.querySelector('#file').addEventListener('change', async event => {
     source.value = await file.text();
     changed();
   } catch (error) {
-    setStatus('Could not open file.', error.message, true);
+    setStatus('FILE ERROR', error.message, true);
   } finally {
     event.target.value = '';
   }
@@ -169,5 +282,9 @@ document.querySelector('#download').addEventListener('click', () => {
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
+
+// --- Startup ---
 source.value = examples.hello;
+resetResults();
 updateEditor();
+
