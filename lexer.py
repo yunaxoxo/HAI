@@ -1,16 +1,15 @@
+"""Specification-focused lexer; tokens remain (kind, raw_lexeme, line)."""
+
 import re
 import os
 import sys
 
 TOKEN_SPECS = [
-    ("NEWLINE",       r"\n"),
+    ("NEWLINE",       r"\r\n|\r|\n"),
     ("SKIP",          r"[ \t]+"),
 
-    # --- Comments ---
-    ("BLOCK_COMMENT", r"(?m)^\s*OBTW[\s\S]*?^\s*TLDR[^\n]*"),
-    ("COMMENT",       r"BTW[^\n]*"),
-
     # --- Separators & Delimiters ---
+    ("PLUS",          r"\+"),             # VISIBLE operand separator
     ("COMMA",         r","),
     ("AN",            r"\bAN\b"),
     ("EXCLAMATION",   r"!"),              # Suppresses newline in VISIBLE
@@ -18,6 +17,8 @@ TOKEN_SPECS = [
     # --- Core Structure & Variables ---
     ("HAI",           r"\bHAI\b"),
     ("KTHXBYE",       r"\bKTHXBYE\b"),
+    ("WAZZUP",        r"\bWAZZUP\b"),
+    ("BUHBYE",        r"\bBUHBYE\b"),
     ("I_HAS_A",       r"\bI HAS A\b"),
     ("ITZ",           r"\bITZ\b"),
     ("R",             r"\bR\b"),
@@ -86,10 +87,11 @@ TOKEN_SPECS = [
     ("SRS",           r"\bSRS\b"),
 
     # --- Literals & Types ---
-    ("NUMBAR",        r"-?\d+\.\d+"),
-    ("NUMBR",         r"-?\d+"),
-    # Handles standard escapes (:), :"), multi-char interpolation (:{var}, :(1F600))
-    ("YARN",          r'"(?:[^"\:]|:[)\(>":\n]|:\{[^\}]+\}|:\([0-9a-fA-F]+\))*"'),
+    ("NUMBAR",        r"-?[0-9]+\.[0-9]+"),
+    ("NUMBR",         r"-?[0-9]+"),
+    # Escapes are optional in the course PDF. Preserve literal text, including
+    # ordinary colons; quote decoding/interpolation belongs to later stages.
+    ("YARN",          r'"[^"\r\n]*"'),
     ("TROOF",         r"\b(WIN|FAIL)\b"),
     ("TYPE",          r"\b(NOOB|TROOF|NUMBR|NUMBAR|YARN|TYPE)\b"),
     ("NOOB",          r"\bNOOB\b"),
@@ -100,32 +102,99 @@ TOKEN_SPECS = [
 
 COMPILED_SPECS = [(name, re.compile(pattern)) for name, pattern in TOKEN_SPECS]
 INPUT_FILE = "source.txt"
+NEWLINE_RE = re.compile(r"\r\n|\r|\n")
+BLOCK_OPEN_RE = re.compile(r"OBTW\b")
+BLOCK_CLOSE_RE = re.compile(r"TLDR\b")
+COMMENT_RE = re.compile(r"BTW\b")
+
+class LexicalError(SyntaxError):
+    """A SyntaxError with locations and completed tokens for the workbench."""
+
+    def __init__(self, message, line, column, tokens):
+        super().__init__(f"Line {line}, column {column}: {message}")
+        self.line = line
+        self.column = column
+        self.tokens = list(tokens)
+
 
 def tokenize(source):
+    """Return parser-compatible triples, preserving raw literal spelling.
+
+    Physical LF, CRLF, and CR endings all produce a canonical NEWLINE token.
+    Block markers must occupy their own lines, optionally followed by BTW.
+    """
     tokens = []
     position = 0
     line_number = 1
+    line_start = 0
+    block_start = None
+
+    def fail(message, at=None):
+        offset = position if at is None else at
+        raise LexicalError(message, line_number, offset - line_start + 1, tokens)
 
     while position < len(source):
+        # Handle line endings first, including those inside discarded comments.
+        ending = NEWLINE_RE.match(source, position)
+        if ending:
+            tokens.append(("NEWLINE", "\n", line_number))
+            position = ending.end()
+            line_number += 1
+            line_start = position
+            continue
+
+        if block_start is not None:
+            end = position
+            while end < len(source) and source[end] not in "\r\n":
+                end += 1
+            content = source[position:end].strip(" \t")
+            if re.match(r"TLDR\b", content):
+                if not re.fullmatch(r"TLDR[ \t]*(?:BTW\b.*)?", content):
+                    fail("TLDR must occupy its own line (an optional BTW comment is allowed).")
+                block_start = None
+            position = end
+            continue
+
+        if BLOCK_OPEN_RE.match(source, position):
+            end = position
+            while end < len(source) and source[end] not in "\r\n":
+                end += 1
+            content = source[position:end]
+            if (source[line_start:position].strip(" \t") or
+                    not re.fullmatch(r"OBTW[ \t]*(?:BTW\b.*)?", content)):
+                fail("OBTW must occupy its own line (an optional BTW comment is allowed).")
+            block_start = line_number
+            position = end
+            continue
+
+        if BLOCK_CLOSE_RE.match(source, position):
+            fail("TLDR has no matching OBTW.")
+
+        if COMMENT_RE.match(source, position):
+            while position < len(source) and source[position] not in "\r\n":
+                position += 1
+            continue
+
         for name, regex in COMPILED_SPECS:
             match = regex.match(source, position)
             if match:
                 break
         else:
-            raise SyntaxError(f"Line {line_number}: can't read '{source[position]}'")
-        
-        text = match.group()
+            if source[position] == '"':
+                fail("Unterminated YARN; strings must end on the same physical line.")
+            fail(f"Cannot read {source[position]!r}.")
 
-        if name == "NEWLINE":
+        text = match.group()
+        if name in ("NUMBR", "NUMBAR") and match.end() < len(source):
+            following = source[match.end()]
+            if following.isalnum() or following in "_.":
+                fail("Invalid numeric literal or identifier beginning with a digit.")
+        if name != "SKIP":
             tokens.append((name, text, line_number))
-            line_number += 1
-        elif name == "BLOCK_COMMENT":
-            line_number += text.count("\n")
-        elif name not in ("SKIP", "COMMENT"):
-            tokens.append((name, text, line_number))
-        
         position = match.end()
 
+    if block_start is not None:
+        fail(f"Unterminated block comment opened on line {block_start}; expected TLDR.")
     return tokens
 
 def read_input(filepath):
@@ -133,7 +202,7 @@ def read_input(filepath):
         print(f"Error: '{filepath}' not found.")
         sys.exit(1)
     
-    with open(filepath, "r") as f:
+    with open(filepath, "r", encoding="utf-8") as f:
         return f.read()
 
 if __name__ == "__main__":
