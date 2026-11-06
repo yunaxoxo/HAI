@@ -1,15 +1,20 @@
-"""Local web interface for the lexer and parser. Run with python -B app.py."""
+"""Local web interface for the lexer, parser, and interpreter. Run with python -B app.py."""
 
 import json
+import subprocess
+import sys
 from dataclasses import fields, is_dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from interpreter import Interpreter
 from lexer import tokenize
 from parser import Parser
 
 FRONTEND = Path(__file__).parent / "frontend"
 MAX_SOURCE_BYTES = 100_000
+RUN_TIMEOUT_SECONDS = 5
+MAX_OUTPUT_CHARACTERS = 100_000
 
 
 def ast_to_dict(value):
@@ -47,6 +52,96 @@ def analyze(source):
                 "error": {"stage": stage, "message": message}}
 
 
+# --- Tokenize only ---
+def tokenize_source(source):
+    """Runs just the lexer so tokens can be inspected without parsing.
+
+    Args:
+        source: The LOLCODE program text.
+
+    Returns:
+        A dict with "ok", "tokens", and (on failure) an "error" holding the
+        stage, message, and the line/column when the lexer knows them.
+    """
+    try:
+        return {"ok": True, "tokens": tokenize(source)}
+    except SyntaxError as error:
+        details = {"stage": "lexer", "message": str(error)}
+        for key in ("line", "column"):
+            if hasattr(error, key):
+                details[key] = getattr(error, key)
+        return {"ok": False, "tokens": list(getattr(error, "tokens", [])), "error": details}
+
+
+# --- Run (child process side) ---
+def run_in_child():
+    """Executes one program inside the child process and prints a JSON result.
+
+    The request arrives on stdin as JSON ({"source", "inputs"}). Program output
+    is captured instead of printed, so the JSON stays the only thing on stdout.
+
+    Returns:
+        None. The result is written to stdout.
+    """
+    request = json.loads(sys.stdin.read())
+    pending_inputs = list(request.get("inputs", []))
+    captured = []
+    interpreter = Interpreter()
+    result = {"ok": True, "error": None}
+
+    def fake_output(text="", end="\n"):
+        captured.append(f"{text}{end}")
+
+    def fake_input(prompt=""):
+        if not pending_inputs:
+            raise RuntimeError("GIMMEH wanted more input. Add one value per line in the Input box.")
+        return pending_inputs.pop(0)
+
+    interpreter.output, interpreter.input = fake_output, fake_input
+    stage = "lexer"
+    try:
+        tokens = tokenize(request["source"])
+        stage = "parser"
+        program = Parser(tokens).parse()
+        stage = "runtime"
+        interpreter.execute(program)
+    except (SyntaxError, RuntimeError, ZeroDivisionError, RecursionError, ValueError) as error:
+        result = {"ok": False, "error": {"stage": stage, "message": str(error)}}
+
+    result["output"] = "".join(captured)[:MAX_OUTPUT_CHARACTERS]
+    result["symbols"] = [
+        {"name": name, "type": interpreter.cast(value, "TYPE"), "value": interpreter.display(value)}
+        for name, value in interpreter.variables.items()
+    ]
+    print(json.dumps(result))
+
+
+# --- Run (server side) ---
+def run_program(source, inputs):
+    """Runs a program in a throwaway Python process with a time limit.
+
+    Args:
+        source: The LOLCODE program text.
+        inputs: A list of strings handed out one by one to GIMMEH.
+
+    Returns:
+        A dict with "ok", "output", "symbols", and (on failure) an "error".
+    """
+    try:
+        finished = subprocess.run(
+            [sys.executable, "-B", str(Path(__file__).resolve()), "--run-child"],
+            input=json.dumps({"source": source, "inputs": inputs}),
+            capture_output=True, text=True, timeout=RUN_TIMEOUT_SECONDS,
+            cwd=str(Path(__file__).parent))
+        return json.loads(finished.stdout)
+    except subprocess.TimeoutExpired:
+        message = f"Program ran longer than {RUN_TIMEOUT_SECONDS} seconds, so it was stopped."
+    except (ValueError, OSError):
+        message = "The runner crashed before finishing. Check the terminal for details."
+    return {"ok": False, "output": "", "symbols": [],
+            "error": {"stage": "runtime", "message": message}}
+
+
 class Handler(BaseHTTPRequestHandler):
     def send_json(self, data, status=200):
         body = json.dumps(data).encode("utf-8")
@@ -72,7 +167,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_POST(self):
-        if self.path != "/api/analyze":
+        if self.path not in ("/api/analyze", "/api/tokenize", "/api/run"):
             self.send_error(404)
             return
         try:
@@ -86,10 +181,22 @@ class Handler(BaseHTTPRequestHandler):
         except (ValueError, UnicodeDecodeError):
             self.send_json({"message": "Send a JSON object with a source string."}, 400)
             return
-        self.send_json(analyze(data["source"]))
+        if self.path == "/api/tokenize":
+            self.send_json(tokenize_source(data["source"]))
+        elif self.path == "/api/run":
+            inputs = data.get("inputs", [])
+            if not isinstance(inputs, list) or not all(isinstance(item, str) for item in inputs):
+                self.send_json({"message": "inputs must be a list of strings."}, 400)
+                return
+            self.send_json(run_program(data["source"], inputs))
+        else:
+            self.send_json(analyze(data["source"]))
 
 
 if __name__ == "__main__":
+    if "--run-child" in sys.argv:
+        run_in_child()
+        sys.exit(0)
     server = ThreadingHTTPServer(("127.0.0.1", 8000), Handler)
     print("LOLCODE Workbench: http://127.0.0.1:8000", flush=True)
     try:
@@ -98,3 +205,4 @@ if __name__ == "__main__":
         pass
     finally:
         server.server_close()
+
