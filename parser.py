@@ -386,14 +386,15 @@ class Parser:
             return self.parse_declaration()
         #identifiers
         if self.is_identifier_token():
-            # is_identifier_token() already checked the second token.
             offset = 2 if token[0] in ("R", "A") else 1
             next_token = self.peek(offset)
             if next_token and next_token[0] == "R":
                 return self.parse_assignment()
             if next_token and next_token[0] == "IS_NOW_A":
                 return self.parse_typecast_statement()
-            raise SyntaxError(f"Line {token[2]}: Unexpected identifier '{token[1]}' statement.")
+            #if it's just a bare variable on its own line, consume it and return the var ref so it updates the register.
+            name = self.consume_identifier()
+            return VarRef(name=name)
 
         #i/o
         if token[0] == "VISIBLE":
@@ -467,13 +468,20 @@ class Parser:
     def parse_print(self) -> PrintStmt:
         self.consume("VISIBLE")
         values = self.parse_print_list()
-        suppress_newline = bool(self.match("EXCLAMATION"))
+    #allow either an ! or + to suppress the newline
+        suppress_newline = bool(self.match("EXCLAMATION", "PLUS"))
         return PrintStmt(values=values, suppress_newline=suppress_newline)
     #<print-list> ::= <value> | <value> <print-list>
     def parse_print_list(self) -> List[Any]:
         values = [self.parse_value()]
-        while self.can_start_value():
-            values.append(self.parse_value())
+        while True:
+            #get + separator if it exists
+            self.match("PLUS")
+            #if there's another value parse it, else we're done
+            if self.can_start_value():
+                values.append(self.parse_value())
+            else:
+                break
         return values
     #<input> ::= GIMMEH IDENTIFIER
     def parse_input(self) -> InputStmt:
