@@ -6,7 +6,7 @@ An interpreter for LOLCODE, written in Python.
 - [x] Lexer
 - [x] Parser
 - [x] Initial command-line interpreter (still in development)
-- [x] Initial frontend (editor, tokens, syntax tree)
+- [x] Web workbench (editor, tokens, syntax tree, run output, symbols)
 
 ## Requirements
 
@@ -47,23 +47,35 @@ python3 -B app.py
 Open http://127.0.0.1:8000 in your browser. Stop the server with Ctrl+C.
 
 - Write LOLCODE or load one of the included examples.
-- Click **Analyze code**, or press Ctrl+Enter (Cmd+Enter on macOS).
-- Inspect the token table and syntax tree, or read lexer/parser errors.
+- **Tokenize** shows the lexer output; click a token row to jump to its line.
+- **Analyze** adds the syntax tree, or the lexer/parser error.
+- **Run** executes the program and shows its output and variables.
+  `GIMMEH` reads from the *Input* box (one value per line). Runs stop after 5 seconds.
+- Ctrl+Enter (Cmd+Enter on macOS) runs. In the editor, Esc then Tab moves focus out.
 - Open a `.lol` or `.txt` file, and save your editor contents as `playground.lol`.
 
-The workbench uses the Python lexer and parser. It checks syntax;
-program execution is currently available through the command-line interpreter.
-Keep a saved copy of your code before
-closing or refreshing the page. The server listens on localhost for local use.
+Run uses the command-line interpreter in a separate process. Keep a saved copy
+of your code before closing or refreshing the page. The server listens on
+localhost for local use.
 
-Run the frontend API checks with:
+Known gap: `VISIBLE a + b` (the `+` separator) is tokenized but not yet
+accepted by the parser. See `docs/PARSER_FINDINGS.md`.
+
+## Tests
 
 ```sh
-python3 -B -m unittest test_app.py
+python3 -B -m unittest test_lexer.py test_workbench.py test_app.py
 ```
+
+## Layout
+
+- `lexer.py`, `parser.py`, `interpreter.py`: the language pipeline.
+- `app.py` and `frontend/`: the local web workbench.
+- `docs/`: maintenance notes and findings.
 
 ## Repository housekeeping
 
 `.gitignore` excludes Python caches, virtual environments, build output,
 local environment files, and operating system metadata. Keep source code,
 sample programs, tests, and documentation under version control.
+
