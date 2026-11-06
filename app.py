@@ -74,6 +74,14 @@ def tokenize_source(source):
 
 
 # --- Run (child process side) ---
+class NeedInput(Exception):
+    """Raised when GIMMEH wants a value that was not supplied yet."""
+
+    def __init__(self, prompt):
+        super().__init__(prompt)
+        self.prompt = prompt
+
+
 def run_in_child():
     """Executes one program inside the child process and prints a JSON result.
 
@@ -87,15 +95,17 @@ def run_in_child():
     pending_inputs = list(request.get("inputs", []))
     captured = []
     interpreter = Interpreter()
-    result = {"ok": True, "error": None}
+    result = {"ok": True, "error": None, "needs_input": False}
 
     def fake_output(text="", end="\n"):
         captured.append(f"{text}{end}")
 
     def fake_input(prompt=""):
         if not pending_inputs:
-            raise RuntimeError("GIMMEH wanted more input. Add one value per line in the Input box.")
-        return pending_inputs.pop(0)
+            raise NeedInput(prompt)
+        answer = pending_inputs.pop(0)
+        captured.append(f"{prompt}{answer}\n")
+        return answer
 
     interpreter.output, interpreter.input = fake_output, fake_input
     stage = "lexer"
@@ -105,8 +115,10 @@ def run_in_child():
         program = Parser(tokens).parse()
         stage = "runtime"
         interpreter.execute(program)
+    except NeedInput as waiting:
+        result = {"ok": True, "error": None, "needs_input": True, "prompt": waiting.prompt}
     except (SyntaxError, RuntimeError, ZeroDivisionError, RecursionError, ValueError) as error:
-        result = {"ok": False, "error": {"stage": stage, "message": str(error)}}
+        result = {"ok": False, "needs_input": False, "error": {"stage": stage, "message": str(error)}}
 
     result["output"] = "".join(captured)[:MAX_OUTPUT_CHARACTERS]
     result["symbols"] = [
@@ -125,7 +137,8 @@ def run_program(source, inputs):
         inputs: A list of strings handed out one by one to GIMMEH.
 
     Returns:
-        A dict with "ok", "output", "symbols", and (on failure) an "error".
+        A dict with "ok", "output", "symbols", "needs_input" (True when GIMMEH
+        is waiting for another value, with its "prompt"), and an "error" on failure.
     """
     try:
         finished = subprocess.run(
@@ -138,7 +151,7 @@ def run_program(source, inputs):
         message = f"Program ran longer than {RUN_TIMEOUT_SECONDS} seconds, so it was stopped."
     except (ValueError, OSError):
         message = "The runner crashed before finishing. Check the terminal for details."
-    return {"ok": False, "output": "", "symbols": [],
+    return {"ok": False, "needs_input": False, "output": "", "symbols": [],
             "error": {"stage": "runtime", "message": message}}
 
 

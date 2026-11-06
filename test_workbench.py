@@ -18,8 +18,15 @@ class WorkbenchTests(unittest.TestCase):
 
     def test_run_feeds_gimmeh_inputs(self):
         source = 'HAI\nI HAS A n\nGIMMEH n\nVISIBLE SUM OF n AN 1\nKTHXBYE\n'
-        self.assertEqual(run_program(source, ["41"])["output"], "42\n")
-        self.assertFalse(run_program(source, [])["ok"])
+        self.assertEqual(run_program(source, ["41"])["output"], "n? 41\n42\n")
+
+    def test_run_pauses_for_live_input(self):
+        source = 'HAI\nI HAS A n\nGIMMEH n\nVISIBLE SUM OF n AN 1\nKTHXBYE\n'
+        waiting = run_program(source, [])
+        self.assertTrue(waiting["ok"])
+        self.assertTrue(waiting["needs_input"])
+        self.assertEqual(waiting["prompt"], "n? ")
+        self.assertFalse(run_program(source, ["41"])["needs_input"])
 
     def test_run_reports_stage_of_failure(self):
         self.assertEqual(run_program('HAI\nVISIBLE\nKTHXBYE', [])["error"]["stage"], "parser")
