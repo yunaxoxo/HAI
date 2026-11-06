@@ -67,6 +67,66 @@ accepted by the parser. See `docs/PARSER_FINDINGS.md`.
 
 ## Tests
 
+### Checking the course test programs
+
+The ten course programs are in `project-testcases-fixed/`. That folder is
+git-ignored, because the course materials may not be redistributable. Each
+contributor keeps a local copy in the repository root. The folder has no
+expected-output files, so this check only reports whether each program
+tokenizes, parses, and runs. It does not check that the output is correct.
+
+Run this from the repository root:
+
+```sh
+python3 -B - <<'EOF'
+from pathlib import Path
+from app import run_program
+
+for path in sorted(Path('project-testcases-fixed').glob('*.lol')):
+    source = path.read_bytes().decode('utf-8')
+    answers = []
+    for _ in range(10):
+        result = run_program(source, answers)
+        if not result['needs_input']:
+            break
+        answers.append('4')   # feeds 4 to every GIMMEH
+    status = 'OK' if result['ok'] else f"{result['error']['stage']}: {result['error']['message']}"
+    print(path.name, '->', status)
+EOF
+```
+
+How it works:
+
+- `run_program` is the same function behind the workbench's Run button. It runs
+  the program in a separate process with a 5-second limit.
+- Each time a program reaches `GIMMEH`, `run_program` returns `needs_input`. The
+  loop adds the answer `4` and runs the program again, up to 10 times.
+- A status of `OK` means the program ran to the end without an error. Anything
+  else prints the stage (`lexer`, `parser`, or `runtime`) and the message.
+- Programs that do arithmetic on their input need numeric answers, which is why
+  the script feeds `4`. A non-numeric answer fails with "Cannot convert ... to a
+  number."
+- On Windows PowerShell, `<<'EOF'` does not work. Save the Python part as
+  `check_testcases.py` and run `python -B check_testcases.py`.
+
+Expected results on the current code:
+
+| File | Result |
+| --- | --- |
+| `01_variables`, `02_gimmeh`, `06_comparison`, `09_loops` | `OK` |
+| `03_arith`, `04_smoosh_assign`, `05_bool`, `07_ifelse`, `10_functions` | `parser` error on the `+` separator |
+| `08_switch` | `parser` error on a bare variable statement |
+
+All six failures come from the two open issues in `docs/PARSER_FINDINGS.md`.
+Once the parser accepts `+` and bare variable statements, all ten programs
+should print `OK`. Update this table and the findings doc when that happens.
+
+To test a single program, open it in the workbench (**Open**, then **Run**), or run:
+
+```sh
+python3 -B interpreter.py project-testcases-fixed/09_loops.lol
+```
+
 ```sh
 python3 -B -m unittest test_lexer.py test_workbench.py test_app.py
 ```
