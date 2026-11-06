@@ -22,6 +22,16 @@ let busy = false;
 let tabTrapReleased = false;
 let liveInputs = [];
 
+// --- Pipeline rail ---
+const STAGES = ['lexer', 'parser', 'runtime'];
+function showStages(reached, failed = false, waiting = false) {
+  const last = STAGES.indexOf(reached);
+  document.querySelectorAll('.pipeline li').forEach(item => {
+    const index = STAGES.indexOf(item.dataset.stage);
+    item.dataset.state = index > last ? 'idle' : index < last ? 'ok' : failed ? 'error' : waiting ? 'active' : 'ok';
+  });
+}
+
 // --- Small helpers ---
 function setStatus(label, message, error = false) {
   document.querySelector('#status').classList.toggle('error', error);
@@ -29,10 +39,13 @@ function setStatus(label, message, error = false) {
   document.querySelector('#status-message').textContent = message;
 }
 
-function empty(message) {
+function empty(message, glyph = '[ ]') {
   const box = document.createElement('div');
   box.className = 'empty';
-  box.textContent = message;
+  const mark = document.createElement('span');
+  mark.className = 'glyph';
+  mark.textContent = glyph;
+  box.append(mark, message);
   return box;
 }
 
@@ -55,8 +68,9 @@ function makeTable(headings, rows, onRowClick) {
     head.append(cell);
   }
   const body = table.createTBody();
-  for (const row of rows) {
+  rows.forEach((row, index) => {
     const tableRow = body.insertRow();
+    tableRow.style.setProperty('--i', Math.min(index, 30));
     row.forEach(cell => {
       const td = tableRow.insertCell();
       td.textContent = cell.text;
@@ -67,7 +81,7 @@ function makeTable(headings, rows, onRowClick) {
       tableRow.title = 'Jump to this line';
       tableRow.addEventListener('click', () => onRowClick(row));
     }
-  }
+  });
   return table;
 }
 
@@ -95,13 +109,14 @@ function updateEditor() {
   const before = source.value.slice(0, source.selectionStart).split('\n');
   document.querySelector('#position').textContent = `Ln ${before.length}, Col ${before.at(-1).length + 1}`;
   lines.scrollTop = source.scrollTop;
+  source.style.backgroundPositionY = `${(before.length - 1) * 22 - source.scrollTop}px`;
 }
 
 function resetResults() {
-  panels.output.replaceChildren(empty('Run your program to see its output here.'));
+  panels.output.replaceChildren(empty('Run your program to see its output here.', '>_'));
   panels.tokens.replaceChildren(empty('Tokenize or analyze to list the lexer output.'));
-  panels.tree.replaceChildren(empty('Analyze or run a valid program to see its syntax tree.'));
-  panels.symbols.replaceChildren(empty('Run your program to see its variables.'));
+  panels.tree.replaceChildren(empty('Analyze or run a valid program to see its syntax tree.', '{ }'));
+  panels.symbols.replaceChildren(empty('Run your program to see its variables.', 'x='));
   document.querySelector('#token-count').textContent = '0';
 }
 
@@ -110,6 +125,7 @@ function changed() {
   liveInputs = [];
   updateEditor();
   resetResults();
+  showStages('none');
   setStatus('EDITED', 'Code changed. Tokenize, Analyze, or Run to refresh the results.');
 }
 
@@ -148,6 +164,7 @@ async function request(endpoint, extra = {}) {
   if (busy) return null;
   busy = true;
   buttons.forEach(button => { button.disabled = true; });
+  document.body.classList.add('busy');
   const current = revision;
   try {
     const response = await fetch(endpoint, {
@@ -163,6 +180,7 @@ async function request(endpoint, extra = {}) {
     return null;
   } finally {
     busy = false;
+    document.body.classList.remove('busy');
     buttons.forEach(button => { button.disabled = false; });
   }
 }
@@ -173,6 +191,7 @@ async function tokenizeOnly() {
   if (!result) return;
   showTokens(result.tokens);
   selectTab('tokens');
+  showStages('lexer', !result.ok);
   if (result.ok) setStatus('TOKENS OK', `${result.tokens.length} tokens from the lexer.`);
   else {
     setStatus('LEXER ERROR', result.error.message, true);
@@ -185,6 +204,7 @@ async function analyze() {
   const result = await request('/api/analyze');
   if (!result) return;
   showTokens(result.tokens);
+  showStages(result.ok ? 'parser' : result.error.stage, !result.ok);
   if (result.ok) {
     showTree(result.ast);
     selectTab('tree');
@@ -234,6 +254,7 @@ async function run(fresh = true) {
   if (result.needs_input) children.push(promptRow(result.prompt));
   panels.output.replaceChildren(...children);
   showSymbols(result.symbols);
+  showStages(result.ok ? 'runtime' : result.error.stage, !result.ok, result.needs_input);
   selectTab('output');
   if (result.needs_input) {
     setStatus('WAITING', `The program is asking for input (${result.prompt.trim()}). Type a value and press Enter.`);
@@ -258,7 +279,7 @@ tabs.forEach((tab, index) => {
 source.addEventListener('input', changed);
 source.addEventListener('click', updateEditor);
 source.addEventListener('keyup', updateEditor);
-source.addEventListener('scroll', () => { lines.scrollTop = source.scrollTop; });
+source.addEventListener('scroll', updateEditor);
 source.addEventListener('keydown', event => {
   if (event.key === 'Escape') { tabTrapReleased = true; return; }
   if (event.key === 'Tab' && !tabTrapReleased && !event.shiftKey) {
@@ -277,7 +298,7 @@ document.addEventListener('keydown', event => {
 document.querySelector('#tokenize').addEventListener('click', tokenizeOnly);
 document.querySelector('#analyze').addEventListener('click', analyze);
 document.querySelector('#run').addEventListener('click', () => run());
-document.querySelector('#clear').addEventListener('click', () => { resetResults(); setStatus('READY', 'Results cleared.'); });
+document.querySelector('#clear').addEventListener('click', () => { resetResults(); showStages('none'); setStatus('READY', 'Results cleared.'); });
 document.querySelector('#load').addEventListener('click', () => {
   if (source.value.trim() && !confirm('Replace the current code with this example?')) return;
   source.value = examples[document.querySelector('#example').value];
