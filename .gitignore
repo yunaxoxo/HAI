@@ -22,3 +22,16 @@ dist/
 !.env.example
 .DS_Store
 Thumbs.db
+
+# Course-provided references stay local (redistribution rights unknown)
+project-testcases-fixed/
+*.pdf
+
+# local review output
+playground.lol
+*.log
+
+# Editor state
+.vscode/
+.idea/
+
