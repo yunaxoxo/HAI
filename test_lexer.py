@@ -1,7 +1,7 @@
 """Independent lexer regressions; course references stay local and unchanged."""
 import unittest
 
-from lexer import tokenize
+from lexer import LexicalError, tokenize, tokenize_with_locations
 
 
 class LexerTests(unittest.TestCase):
@@ -94,6 +94,44 @@ class LexerTests(unittest.TestCase):
             self.assertIsInstance(token, tuple)
             self.assertEqual(len(token), 3)
             self.assertIsInstance(token[2], int)
+
+    def test_source_ranges_preserve_raw_offsets_and_columns(self):
+        source = 'HAI\r\n  VISIBLE "😊" + SUM OF 5 AN 3\rKTHXBYE'
+        tokens, spans = tokenize_with_locations(source)
+        self.assertEqual(tokens, tokenize(source))
+        self.assertEqual(len(tokens), len(spans))
+        for (kind, lexeme, line), span in zip(tokens, spans):
+            raw = source[span["start_offset"]:span["end_offset"]]
+            self.assertEqual(raw, '\r\n' if kind == 'NEWLINE' and span['end_offset'] - span['start_offset'] == 2
+                             else ('\r' if kind == 'NEWLINE' and raw == '\r' else lexeme))
+            self.assertEqual(span['line'], line)
+        visible = next(span for token, span in zip(tokens, spans) if token[0] == 'VISIBLE')
+        self.assertEqual((visible['line'], visible['column'], visible['end_column']), (2, 3, 10))
+        plus = next(span for token, span in zip(tokens, spans) if token[0] == 'PLUS')
+        self.assertEqual(source[plus['start_offset']:plus['end_offset']], '+')
+        self.assertEqual(plus['end_column'], plus['column'] + 1)
+
+    def test_error_retains_completed_spans_and_exact_character(self):
+        with self.assertRaises(LexicalError) as thrown:
+            tokenize_with_locations('HAI\nVISIBLE 1\n@')
+        error = thrown.exception
+        self.assertEqual((error.line, error.column), (3, 1))
+        self.assertEqual((error.start_offset, error.end_offset), (14, 15))
+        self.assertEqual(len(error.tokens), len(error.token_locations))
+        self.assertEqual(error.tokens[-1], ('NEWLINE', '\n', 2))
+
+    def test_unterminated_block_comment_points_to_eof(self):
+        source = 'HAI\nOBTW\nnotes'
+        with self.assertRaises(LexicalError) as thrown:
+            tokenize_with_locations(source)
+        error = thrown.exception
+        self.assertEqual(error.start_offset, len(source))
+        self.assertEqual(error.end_offset, len(source))
+        self.assertEqual(error.end_column, error.column)
+
+    def test_visible_plus_matches_course_spec_not_addition_syntax(self):
+        self.assertIn(('PLUS', '+', 2), tokenize('HAI\nVISIBLE "hello" + 7\nKTHXBYE'))
+        self.assertIn(('SUM_OF', 'SUM OF', 2), tokenize('HAI\nVISIBLE SUM OF 5 AN 3\nKTHXBYE'))
 
 
 if __name__ == '__main__':
