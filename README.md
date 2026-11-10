@@ -47,8 +47,11 @@ python3 -B app.py
 Open http://127.0.0.1:8000 in your browser. Stop the server with Ctrl+C.
 
 - Write LOLCODE or load one of the included examples.
-- **Tokenize** shows the lexer output; click a token row to jump to its line.
-- **Analyze** adds the syntax tree, or the lexer/parser error.
+- **Tokenize** shows lexer output with line and column; click a token row (or press Enter/Space when focused) to select its exact source lexeme.
+- **Analyze** adds an expandable syntax tree with source-linked nodes. Select
+  an AST node to select its exact source range; selecting a source expression
+  highlights the smallest matching AST node. The original JSON remains under
+  **View raw AST JSON**. Errors with known locations include Go to source.
 - **Run** executes the program and shows its output and variables. When the
   program reaches `GIMMEH`, the Output panel shows a live prompt: type a value and
   press Enter. The *Preset input* box is optional and answers prompts in advance.
@@ -62,8 +65,29 @@ sessions), so every answer is replayed deterministically. Keep a saved copy
 of your code before closing or refreshing the page. The server listens on
 localhost for local use.
 
-Known gap: `VISIBLE a + b` (the `+` separator) is tokenized but not yet
-accepted by the parser. See `docs/PARSER_FINDINGS.md`.
+The course's `+` separator in `VISIBLE a + b` is supported. It is distinct
+from arithmetic addition, written `SUM OF a AN b`. Both Analyze and Run reject
+unexpected tokens after `KTHXBYE`, while still allowing the trailing functions
+supported by the course specification. See `docs/PARSER_FINDINGS.md` for the
+verified status of previously reported parser concerns.
+
+For future source-to-AST UI work, the lexer exposes `tokenize_with_locations()`.
+`/api/tokenize` and `/api/analyze` return an additional `token_locations` array
+aligned with the existing `tokens` tuples. It contains 1-based line/column and
+0-based, half-open Python Unicode codepoint offsets. The frontend converts
+codepoint offsets to textarea UTF-16 offsets before selecting the lexeme.
+The parser's three-field token contract remains unchanged. The parser now
+accepts optional aligned token locations and records token-derived source spans
+for constructed AST nodes. Analyze adds a separate `ast_locations` map, keyed
+by JSON paths such as `$.body[0].values[0]`; the AST JSON itself is unchanged.
+Locations refer to **one analyzed revision**, not stable identifiers across edits.
+The frontend clears mappings when the source changes.
+
+Parser errors can pinpoint the unexpected token or the end of a line (an empty
+span); errors with a known earlier location retain that location rather than
+receiving invented columns. Runtime errors inside expressions receive the
+innermost failing AST node's source range when available. See
+`docs/COMPILER_ATLAS_FOUNDATION.md` for details and limitations.
 
 ## Tests
 
@@ -109,17 +133,16 @@ How it works:
 - On Windows PowerShell, `<<'EOF'` does not work. Save the Python part as
   `check_testcases.py` and run `python -B check_testcases.py`.
 
-Expected results on the current code:
+Verified against the ten **user-supplied** course programs (November 2026):
+all 10 tokenize and parse. All 10 complete without reported runtime errors when
+provided with enough preset `"4"` answers. This verifies execution completion,
+**not** correctness of expected output (the ZIP contains no expected-output
+reference files). The supplied course programs are not included in this
+repository distribution.
 
-| File | Result |
-| --- | --- |
-| `01_variables`, `02_gimmeh`, `06_comparison`, `09_loops` | `OK` |
-| `03_arith`, `04_smoosh_assign`, `05_bool`, `07_ifelse`, `10_functions` | `parser` error on the `+` separator |
-| `08_switch` | `parser` error on a bare variable statement |
-
-All six failures come from the two open issues in `docs/PARSER_FINDINGS.md`.
-Once the parser accepts `+` and bare variable statements, all ten programs
-should print `OK`. Update this table and the findings doc when that happens.
+The earlier `PLUS`-separator and standalone-variable parser findings have
+already been resolved in `parser.py` and are now marked as historical in
+`docs/PARSER_FINDINGS.md`. Do not change the parser based on those stale findings.
 
 To test a single program, open it in the workbench (**Open**, then **Run**), or run:
 
@@ -128,7 +151,7 @@ python3 -B interpreter.py project-testcases-fixed/09_loops.lol
 ```
 
 ```sh
-python3 -B -m unittest test_lexer.py test_workbench.py test_app.py
+python3 -B -m unittest discover -q
 ```
 
 ## Layout
