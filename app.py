@@ -1,6 +1,7 @@
 """Local web interface for the lexer, parser, and interpreter. Run with python -B app.py."""
 
 import json
+import re
 import subprocess
 import sys
 from dataclasses import fields, is_dataclass
@@ -8,7 +9,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from interpreter import Interpreter
-from lexer import tokenize
+from lexer import tokenize_with_locations
 from parser import Parser
 
 FRONTEND = Path(__file__).parent / "frontend"
@@ -17,60 +18,125 @@ RUN_TIMEOUT_SECONDS = 5
 MAX_OUTPUT_CHARACTERS = 100_000
 
 
-def ast_to_dict(value):
-    """Keep node names so the syntax tree is easier to read in the browser."""
+def ast_to_dict(value, spans=None, output_locations=None, path="$"):
+    """Serialize AST without changing its existing JSON shape.
+
+    Optional ``output_locations`` collects a parallel mapping from stable JSON
+    paths to token-derived source spans, so old API consumers still work.
+    Paths identify nodes within this single analysis result, not across edits.
+    """
     if is_dataclass(value):
+        if spans is not None and output_locations is not None:
+            loc = spans.get(id(value))
+            if loc is not None:
+                output_locations[path] = dict(loc)
         return {"node": type(value).__name__, **{
-            field.name: ast_to_dict(getattr(value, field.name))
+            field.name: ast_to_dict(getattr(value, field.name), spans,
+                                    output_locations, f"{path}.{field.name}")
             for field in fields(value)
         }}
     if isinstance(value, list):
-        return [ast_to_dict(item) for item in value]
+        return [ast_to_dict(item, spans, output_locations, f"{path}[{i}]")
+                for i, item in enumerate(value)]
     if isinstance(value, dict):
-        return {key: ast_to_dict(item) for key, item in value.items()}
+        return {key: ast_to_dict(item, spans, output_locations, f"{path}.{key}")
+                for key, item in value.items()}
     return value
 
 
-def analyze(source):
-    tokens = []
-    stage = "lexer"
+def add_parser_error_location(error, parser, locations):
+    """Point to the unexpected token, or a zero-width EOF position.
+
+    A location is attached only when it represents where the parse actually
+    stopped. We do not guess where a node should have been inserted.
+    """
+    if getattr(error, "start_offset", None) is not None or not locations:
+        return
+    index = parser.position
+    if index < len(locations):
+        selected = locations[index].copy()
+        if parser.tokens[index][0] == "NEWLINE":
+            # The offending event is the line break, not the next line.
+            selected["end_line"] = selected["line"]
+            selected["end_column"] = selected["column"]
+            selected["end_offset"] = selected["start_offset"]
+    else:
+        previous = locations[-1]
+        selected = {"line": previous["end_line"],
+                    "column": previous["end_column"],
+                    "end_line": previous["end_line"],
+                    "end_column": previous["end_column"],
+                    "start_offset": previous["end_offset"],
+                    "end_offset": previous["end_offset"]}
+    # A custom parser error might point to a previously consumed token; do
+    # not overwrite its explicit line with a misleading current-token span.
+    match = re.match(r"Line (\d+):", str(error))
+    if match and int(match.group(1)) != selected["line"]:
+        return
+    for key, value in selected.items():
+        setattr(error, key, value)
+
+
+def error_details(error, stage):
+    """Preserve known locations without inventing exact parser/runtime columns."""
+    details = {"stage": stage, "message": str(error)}
+    for key in ("line", "column", "end_line", "end_column",
+                "start_offset", "end_offset"):
+        value = getattr(error, key, None)
+        if value is not None:
+            details[key] = value
+    # The existing parser raises plain SyntaxError with a line in its message.
+    # This is a line-only fallback; it is NOT a reliable exact source range.
+    if "line" not in details:
+        match = re.match(r"Line (\d+):", details["message"])
+        if match:
+            details["line"] = int(match.group(1))
+    return details
+
+
+def parse_complete(tokens, locations):
+    """Parse the entire source, returning the AST and its location metadata."""
+    parser = Parser(tokens, locations)
     try:
-        tokens = tokenize(source)
-        stage = "parser"
-        parser = Parser(tokens)
         program = parser.parse()
-        # The parser currently stops after the program and trailing functions.
         if not parser.is_at_end():
             token = parser.peek()
             raise SyntaxError(f"Line {token[2]}: Unexpected token '{token[1]}' after program.")
-        return {"ok": True, "tokens": tokens, "ast": ast_to_dict(program)}
+        return program, parser.node_spans
+    except SyntaxError as error:
+        add_parser_error_location(error, parser, locations)
+        raise
+
+
+def analyze(source):
+    tokens, locations = [], []
+    stage = "lexer"
+    try:
+        tokens, locations = tokenize_with_locations(source)
+        stage = "parser"
+        program, spans = parse_complete(tokens, locations)
+        ast_locations = {}
+        ast = ast_to_dict(program, spans, ast_locations)
+        return {"ok": True, "tokens": tokens, "token_locations": locations,
+                "ast": ast, "ast_locations": ast_locations}
     except (SyntaxError, RecursionError, ValueError) as error:
-        message = str(error)
         if isinstance(error, RecursionError):
-            message = "Expressions are nested too deeply. Try simplifying the program."
-        return {"ok": False, "tokens": tokens, "ast": None,
-                "error": {"stage": stage, "message": message}}
+            error = ValueError("Expressions are nested too deeply. Try simplifying the program.")
+        return {"ok": False, "tokens": list(getattr(error, "tokens", tokens)),
+                "token_locations": list(getattr(error, "token_locations", locations)),
+                "ast": None, "ast_locations": {}, "error": error_details(error, stage)}
 
 
 # --- Tokenize only ---
 def tokenize_source(source):
-    """Runs just the lexer so tokens can be inspected without parsing.
-
-    Args:
-        source: The LOLCODE program text.
-
-    Returns:
-        A dict with "ok", "tokens", and (on failure) an "error" holding the
-        stage, message, and the line/column when the lexer knows them.
-    """
+    """Inspect the lexer without asking the parser to accept the program."""
     try:
-        return {"ok": True, "tokens": tokenize(source)}
+        tokens, locations = tokenize_with_locations(source)
+        return {"ok": True, "tokens": tokens, "token_locations": locations}
     except SyntaxError as error:
-        details = {"stage": "lexer", "message": str(error)}
-        for key in ("line", "column"):
-            if hasattr(error, key):
-                details[key] = getattr(error, key)
-        return {"ok": False, "tokens": list(getattr(error, "tokens", [])), "error": details}
+        return {"ok": False, "tokens": list(getattr(error, "tokens", [])),
+                "token_locations": list(getattr(error, "token_locations", [])),
+                "error": error_details(error, "lexer")}
 
 
 # --- Run (child process side) ---
@@ -110,15 +176,17 @@ def run_in_child():
     interpreter.output, interpreter.input = fake_output, fake_input
     stage = "lexer"
     try:
-        tokens = tokenize(request["source"])
+        tokens, locations = tokenize_with_locations(request["source"])
         stage = "parser"
-        program = Parser(tokens).parse()
+        program, spans = parse_complete(tokens, locations)
+        interpreter.node_spans = spans
         stage = "runtime"
         interpreter.execute(program)
     except NeedInput as waiting:
         result = {"ok": True, "error": None, "needs_input": True, "prompt": waiting.prompt}
     except (SyntaxError, RuntimeError, ZeroDivisionError, RecursionError, ValueError) as error:
-        result = {"ok": False, "needs_input": False, "error": {"stage": stage, "message": str(error)}}
+        result = {"ok": False, "needs_input": False,
+                  "error": error_details(error, stage)}
 
     result["output"] = "".join(captured)[:MAX_OUTPUT_CHARACTERS]
     result["symbols"] = [
