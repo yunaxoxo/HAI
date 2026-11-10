@@ -21,6 +21,11 @@ let revision = 0;
 let busy = false;
 let tabTrapReleased = false;
 let liveInputs = [];
+// AST locations are revision-scoped. They must never be used after an edit.
+let astLocations = {};
+let astElements = new Map();
+let selectedAstPath = null;
+let syncingAstSelection = false;
 
 // --- Pipeline rail ---
 const STAGES = ['lexer', 'parser', 'runtime'];
@@ -55,6 +60,14 @@ function errorBox(error) {
   const label = document.createElement('b');
   label.textContent = `ERROR · ${error.stage.toUpperCase()}`;
   box.append(label, document.createElement('br'), error.message);
+  if (error.line) {
+    const go = document.createElement('button');
+    go.className = 'quiet';
+    go.textContent = `Go to line ${error.line}${error.column ? `, column ${error.column}` : ''}`;
+    go.addEventListener('click', () => error.start_offset !== undefined
+      ? jumpToLocation(error) : jumpToLine(error.line));
+    box.append(document.createElement('br'), go);
+  }
   return box;
 }
 
@@ -78,8 +91,15 @@ function makeTable(headings, rows, onRowClick) {
     });
     if (onRowClick) {
       tableRow.className = 'jump';
-      tableRow.title = 'Jump to this line';
-      tableRow.addEventListener('click', () => onRowClick(row));
+      tableRow.title = 'Go to this source location';
+      tableRow.tabIndex = 0;
+      tableRow.addEventListener('click', () => onRowClick(row, index));
+      tableRow.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onRowClick(row, index);
+        }
+      });
     }
   });
   return table;
@@ -103,6 +123,76 @@ function jumpToLine(lineNumber) {
   updateEditor();
 }
 
+// API offsets use Python Unicode codepoints; textarea selection offsets use
+// UTF-16 code units. Convert before selecting (e.g. source containing emoji).
+function codepointToTextareaOffset(offset) {
+  if (!Number.isInteger(offset) || offset < 0) return null;
+  return Array.from(source.value).slice(0, offset).join('').length;
+}
+
+function jumpToLocation(location, focus = true) {
+  if (!location) return;
+  const start = codepointToTextareaOffset(location.start_offset);
+  const end = codepointToTextareaOffset(location.end_offset);
+  if (start === null || end === null) {
+    if (location.line) jumpToLine(location.line);
+    return;
+  }
+  if (focus) source.focus();
+  source.setSelectionRange(start, end);
+  source.scrollTop = Math.max(0, ((location.line || 1) - 3) * 22);
+  updateEditor();
+}
+
+// --- Editor ---
+function sourceSelectionToCodepoints() {
+  return [source.selectionStart, source.selectionEnd].map(offset =>
+    Array.from(source.value.slice(0, offset)).length);
+}
+
+function selectAstPath(path, navigate = false) {
+  const location = astLocations[path];
+  const element = astElements.get(path);
+  if (!location || !element) return;
+  if (selectedAstPath && astElements.has(selectedAstPath)) {
+    const previous = astElements.get(selectedAstPath);
+    previous.classList.remove('ast-selected');
+    previous.setAttribute('aria-current', 'false');
+  }
+  selectedAstPath = path;
+  element.classList.add('ast-selected');
+  element.setAttribute('aria-current', 'location');
+  const details = panels.tree.querySelector('.ast-selection');
+  if (details) {
+    const pieces = path.split('.');
+    const name = element.dataset.nodeType || 'Node';
+    details.textContent = `${name} · ${location.line}:${location.column}–${location.end_line}:${location.end_column} · ${pieces.join(' / ')}`;
+  }
+  if (navigate) {
+    syncingAstSelection = true;
+    jumpToLocation(location, false);
+    syncingAstSelection = false;
+  }
+}
+
+function syncAstFromSource() {
+  if (syncingAstSelection || !astElements.size) return;
+  const [start, end] = sourceSelectionToCodepoints();
+  const hits = Object.entries(astLocations).filter(([path, position]) =>
+    astElements.has(path) && position.start_offset <= start &&
+    (end > start ? position.end_offset >= end : position.end_offset > start));
+  hits.sort((a, b) =>
+    (a[1].end_offset - a[1].start_offset) - (b[1].end_offset - b[1].start_offset));
+  if (!hits.length) return;
+  const path = hits[0][0];
+  selectAstPath(path);
+  let ancestor = astElements.get(path)?.parentElement;
+  while (ancestor && ancestor !== panels.tree) {
+    if (ancestor.tagName === 'DETAILS') ancestor.open = true;
+    ancestor = ancestor.parentElement;
+  }
+}
+
 // --- Editor ---
 function updateEditor() {
   lines.textContent = source.value.split('\n').map((_, index) => index + 1).join('\n');
@@ -110,6 +200,7 @@ function updateEditor() {
   document.querySelector('#position').textContent = `Ln ${before.length}, Col ${before.at(-1).length + 1}`;
   lines.scrollTop = source.scrollTop;
   source.style.backgroundPositionY = `${(before.length - 1) * 22 - source.scrollTop}px`;
+  syncAstFromSource();
 }
 
 function resetResults() {
@@ -118,6 +209,9 @@ function resetResults() {
   panels.tree.replaceChildren(empty('Analyze or run a valid program to see its syntax tree.', '{ }'));
   panels.symbols.replaceChildren(empty('Run your program to see its variables.', 'x='));
   document.querySelector('#token-count').textContent = '0';
+  astLocations = {};
+  astElements = new Map();
+  selectedAstPath = null;
 }
 
 function changed() {
@@ -130,24 +224,101 @@ function changed() {
 }
 
 // --- Rendering ---
-function showTokens(tokens) {
+function showTokens(tokens, locations = []) {
   document.querySelector('#token-count').textContent = tokens.length;
   if (!tokens.length) {
     panels.tokens.replaceChildren(empty('The lexer produced no tokens.'));
     return;
   }
-  const rows = tokens.map(([kind, lexeme, line]) => {
+  const rows = tokens.map(([kind, lexeme, line], index) => {
     const className = LITERALS.includes(kind) ? 'lit' : PUNCTUATION.includes(kind) ? 'punct' : kind === 'IDENTIFIER' ? 'ident' : 'kw';
-    return [{text: line}, {text: kind, className}, {text: lexeme === '\n' ? '↵' : lexeme}];
+    return [{text: line}, {text: locations[index]?.column ?? '—'},
+            {text: kind, className}, {text: lexeme === '\n' ? '↵' : lexeme}];
   });
-  panels.tokens.replaceChildren(makeTable(['LINE', 'TOKEN', 'LEXEME'], rows, row => jumpToLine(Number(row[0].text))));
+  panels.tokens.replaceChildren(makeTable(['LINE', 'COL', 'TOKEN', 'LEXEME'], rows,
+    (row, index) => locations[index] ? jumpToLocation(locations[index]) : jumpToLine(Number(row[0].text))));
 }
 
-function showTree(ast) {
-  const tree = document.createElement('pre');
-  tree.className = 'tree';
-  tree.textContent = JSON.stringify(ast, null, 2);
-  panels.tree.replaceChildren(tree);
+function showTree(ast, locations = {}) {
+  astLocations = locations || {};
+  astElements = new Map();
+  selectedAstPath = null;
+  const wrapper = document.createElement('div');
+  wrapper.className = 'ast-explorer';
+  const info = document.createElement('p');
+  info.className = 'ast-selection';
+  info.setAttribute('aria-live', 'polite');
+  info.textContent = 'Select a node to see its source location.';
+  wrapper.append(info);
+
+  // Traverse actual parser nodes, including those nested inside lists and
+  // ordinary dictionaries (e.g. the cases in a switch statement).
+  function getChildren(value, path) {
+    const children = [];
+    for (const [field, item] of Object.entries(value)) {
+      if (field === 'node') continue;
+      const collect = (candidate, candidatePath, label) => {
+        if (!candidate || typeof candidate !== 'object') return;
+        if (candidate.node) {
+          children.push({node: candidate, path: candidatePath, label});
+        } else if (Array.isArray(candidate)) {
+          candidate.forEach((child, i) => collect(child, `${candidatePath}[${i}]`, `${label}[${i}]`));
+        } else {
+          Object.entries(candidate).forEach(([key, child]) =>
+            collect(child, `${candidatePath}.${key}`, `${label}.${key}`));
+        }
+      };
+      collect(item, `${path}.${field}`, field);
+    }
+    return children;
+  }
+
+  function buildNode(node, path, label, depth) {
+    const li = document.createElement('li');
+    const descendants = getChildren(node, path);
+    const extras = Object.entries(node).filter(([key, value]) =>
+      key !== 'node' && (value === null || typeof value !== 'object'));
+    const description = extras.slice(0, 2).map(([key, value]) => `${key}: ${String(value)}`).join(' · ');
+    const text = `${label ? label + ' · ' : ''}${node.node}${description ? ' — ' + description : ''}`;
+    const element = descendants.length ? document.createElement('summary') : document.createElement('button');
+    element.className = 'ast-node';
+    element.textContent = text;
+    element.dataset.nodeType = node.node;
+    if (descendants.length) element.tabIndex = 0;
+    else element.type = 'button';
+    element.title = astLocations[path] ? 'Select corresponding source code' : 'No source location';
+    if (astLocations[path]) {
+      astElements.set(path, element);
+      element.addEventListener('click', () => selectAstPath(path, true));
+    } else element.classList.add('ast-unmapped');
+    if (descendants.length) {
+      const details = document.createElement('details');
+      details.open = depth < 2;
+      details.append(element);
+      const list = document.createElement('ul');
+      for (const child of descendants) list.append(buildNode(child.node, child.path, child.label, depth + 1));
+      details.append(list);
+      li.append(details);
+    } else {
+      li.append(element);
+    }
+    return li;
+  }
+
+  const list = document.createElement('ul');
+  list.className = 'ast-tree';
+  list.append(buildNode(ast, '$', '', 0));
+  wrapper.append(list);
+  const raw = document.createElement('details');
+  raw.className = 'ast-raw';
+  const summary = document.createElement('summary');
+  summary.textContent = 'View raw AST JSON';
+  const pre = document.createElement('pre');
+  pre.className = 'tree';
+  pre.textContent = JSON.stringify(ast, null, 2);
+  raw.append(summary, pre);
+  wrapper.append(raw);
+  panels.tree.replaceChildren(wrapper);
 }
 
 function showSymbols(symbols) {
@@ -189,13 +360,14 @@ async function tokenizeOnly() {
   setStatus('WORKING', 'Reading tokens…');
   const result = await request('/api/tokenize');
   if (!result) return;
-  showTokens(result.tokens);
+  showTokens(result.tokens, result.token_locations);
   selectTab('tokens');
   showStages('lexer', !result.ok);
   if (result.ok) setStatus('TOKENS OK', `${result.tokens.length} tokens from the lexer.`);
   else {
     setStatus('LEXER ERROR', result.error.message, true);
-    if (result.error.line) jumpToLine(result.error.line);
+    if (result.error.start_offset !== undefined) jumpToLocation(result.error);
+    else if (result.error.line) jumpToLine(result.error.line);
   }
 }
 
@@ -203,10 +375,10 @@ async function analyze() {
   setStatus('WORKING', 'Tokenizing and parsing…');
   const result = await request('/api/analyze');
   if (!result) return;
-  showTokens(result.tokens);
+  showTokens(result.tokens, result.token_locations);
   showStages(result.ok ? 'parser' : result.error.stage, !result.ok);
   if (result.ok) {
-    showTree(result.ast);
+    showTree(result.ast, result.ast_locations);
     selectTab('tree');
     setStatus('SYNTAX OK', `${result.tokens.length} tokens · ${result.ast.body.length} top-level statements · ${result.ast.functions.length} functions.`);
   } else {

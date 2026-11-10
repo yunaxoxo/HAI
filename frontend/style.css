@@ -98,3 +98,19 @@ tbody tr.jump:hover{background:var(--panel-2);box-shadow:inset 3px 0 var(--accen
   .editor-panel .actions{position:fixed;z-index:5;left:0;right:0;bottom:0;display:grid;grid-template-columns:1fr 1fr 1.4fr;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:var(--panel-2);border-top:1px solid var(--accent)}
   .actions button{padding:12px}}
 @media(max-width:520px){header,main{padding-left:12px;padding-right:12px}.panel-foot span:last-child{display:none}.controls select{max-width:140px}}
+
+/* AST explorer: meaningful hierarchy and source correspondence, not cards. */
+.ast-explorer{padding:14px 16px;min-width:0;font:12px/1.6 var(--mono)}
+.ast-selection{margin:0 0 12px;padding:9px 11px;border-left:2px solid var(--accent);background:var(--panel-2);color:var(--muted);overflow-wrap:anywhere}
+.ast-tree,.ast-tree ul{margin:0;padding-left:18px;list-style:none;border-left:1px solid var(--line)}
+.ast-tree{padding-left:0;border-left:0}
+.ast-tree li{min-width:0;margin:2px 0}
+.ast-node{display:block;width:100%;padding:4px 7px;background:transparent;border:1px solid transparent;border-radius:3px;text-align:left;font:inherit;white-space:normal;overflow-wrap:anywhere;color:var(--text);cursor:pointer}
+.ast-node:hover,.ast-node:focus-visible{border-color:var(--accent);background:var(--panel-2)}
+.ast-node.ast-selected{border-left:3px solid var(--accent);background:var(--panel-2);color:var(--accent)}
+.ast-node.ast-unmapped{cursor:default;color:var(--muted)}
+.ast-tree summary{list-style:disclosure-closed;display:list-item;list-style-position:inside}
+.ast-tree details[open]>summary{list-style:disclosure-open}
+.ast-raw{margin-top:16px;border-top:1px solid var(--line);padding-top:10px;color:var(--muted)}
+.ast-raw summary{cursor:pointer}
+.ast-raw .tree{max-height:360px;overflow:auto;padding:10px 0}
