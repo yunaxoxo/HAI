@@ -1,7 +1,7 @@
 """Checks for the tokenize/run endpoints added for the workbench."""
 import unittest
 
-from app import run_program, tokenize_source
+from app import analyze, run_program, tokenize_source
 
 
 class WorkbenchTests(unittest.TestCase):
@@ -35,6 +35,44 @@ class WorkbenchTests(unittest.TestCase):
     def test_run_stops_runaway_loops(self):
         result = run_program('HAI\nIM IN YR l\nIM OUTTA YR l\nKTHXBYE\n', [])
         self.assertFalse(result["ok"])
+
+    def test_analyze_and_run_reject_same_trailing_program_statement(self):
+        source = 'HAI\nKTHXBYE\nVISIBLE 1'
+        analysis = analyze(source)
+        executed = run_program(source, [])
+        for result in (analysis, executed):
+            self.assertFalse(result['ok'])
+            self.assertEqual(result['error']['stage'], 'parser')
+            self.assertEqual((result['error']['line'], result['error']['column']), (3, 1))
+            self.assertEqual(source[result['error']['start_offset']:result['error']['end_offset']], 'VISIBLE')
+        self.assertEqual(executed['output'], '')
+        self.assertEqual(analysis['error'], executed['error'])
+
+    def test_analyze_run_and_tokenize_preserve_lexer_location(self):
+        source = 'HAI\nVISIBLE 1\n@'
+        for result in (analyze(source), run_program(source, []), tokenize_source(source)):
+            self.assertFalse(result['ok'])
+            self.assertEqual(result['error']['stage'], 'lexer')
+            self.assertEqual((result['error']['line'], result['error']['column']), (3, 1))
+            self.assertEqual((result['error']['start_offset'], result['error']['end_offset']), (14, 15))
+        self.assertEqual(len(analyze(source)['tokens']), len(analyze(source)['token_locations']))
+
+    def test_parser_error_points_to_unexpected_newline(self):
+        result = analyze('HAI\nVISIBLE SUM OF 5\nKTHXBYE')
+        self.assertFalse(result['ok'])
+        self.assertEqual(result['error']['stage'], 'parser')
+        self.assertEqual((result['error']['line'], result['error']['column']), (2, 17))
+        self.assertEqual(result['error']['start_offset'], result['error']['end_offset'])
+
+    def test_token_locations_do_not_change_parser_tuple_contract(self):
+        source = 'HAI\nVISIBLE 5 + 3\nKTHXBYE'
+        result = analyze(source)
+        self.assertTrue(result['ok'])
+        self.assertEqual(len(result['tokens']), len(result['token_locations']))
+        self.assertTrue(all(len(token) == 3 for token in result['tokens']))
+        i = next(i for i, token in enumerate(result['tokens']) if token[0] == 'PLUS')
+        loc = result['token_locations'][i]
+        self.assertEqual(source[loc['start_offset']:loc['end_offset']], '+')
 
 
 if __name__ == "__main__":
