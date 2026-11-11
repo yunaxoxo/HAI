@@ -34,7 +34,8 @@ class FrontendTests(unittest.TestCase):
             connection.close()
 
     def test_assets_and_unknown_paths(self):
-        for path in ("/", "/style.css", "/app.js"):
+        for path in ("/", "/style.css", "/app.js",
+                     "/vendor/codemirror.js", "/vendor/codemirror.css"):
             status, body = self.request("GET", path)
             self.assertEqual(status, 200)
             self.assertTrue(body)
