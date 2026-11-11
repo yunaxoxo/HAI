@@ -65,9 +65,13 @@ window.addEventListener('DOMContentLoaded', function () {
   <div class="toolbar-groups">
     <div class="toolbar-group header-actions example-group" id="mobile-samples-panel">
       <label class="visually-hidden" for="example">Sample program</label>
-      <div class="select-shell">
+      <div class="select-shell sample-selector" id="sample-selector">
         <span class="select-prefix">Sample</span>
-        <select id="example" title="Choose a sample program">
+        <button class="sample-trigger" type="button" id="sample-trigger" aria-haspopup="menu" aria-expanded="false" aria-controls="sample-menu" aria-label="Choose sample program">
+          <span id="sample-current">Hello, world</span><span class="sample-chevron" aria-hidden="true"></span>
+        </button>
+        <div class="sample-menu" id="sample-menu" role="menu" aria-label="Sample programs" hidden></div>
+        <select id="example" hidden aria-hidden="true" tabindex="-1">
           <option value="hello">Hello, world</option>
           <option value="math">Variables &amp; math</option>
           <option value="conditional">Conditional</option>
@@ -191,8 +195,56 @@ window.addEventListener('DOMContentLoaded', function () {
   <div class="status-meta">
     <span id="selected-range" hidden></span>
     <span id="editor-where">Ln 1 · Col 1</span>
+    <button class="keymap-trigger" id="show-keymaps" type="button" aria-haspopup="dialog" aria-controls="keymaps-dialog" title="Show keyboard shortcuts (? or Cmd/Ctrl + /)" aria-keyshortcuts="Shift+Slash">Shortcuts</button>
   </div>
 </footer>
 </div>
+
+<!-- Application-owned dialogs; native operating-system file pickers and download prompts remain browser-controlled. -->
+<dialog class="hai-dialog" id="workbench-dialog" aria-labelledby="dialog-title" aria-describedby="dialog-copy">
+  <form id="dialog-form" method="dialog">
+    <div class="dialog-topline">
+      <span class="dialog-context" id="dialog-context">HAI</span>
+      <button type="button" class="dialog-close" id="dialog-close" aria-label="Close dialog">×</button>
+    </div>
+    <h2 id="dialog-title"></h2>
+    <p id="dialog-copy"></p>
+    <label class="dialog-file-field" id="dialog-file-field" for="dialog-filename" hidden>
+      Filename
+      <input id="dialog-filename" type="text" autocomplete="off" spellcheck="false" maxlength="90"/>
+    </label>
+    <div class="dialog-actions">
+      <button type="button" class="dialog-secondary" id="dialog-cancel">Cancel</button>
+      <button type="submit" class="dialog-primary" id="dialog-confirm">Continue</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="hai-dialog keymaps-dialog" id="keymaps-dialog" aria-labelledby="keymaps-title">
+  <div class="dialog-topline">
+    <span class="dialog-context">HAI</span>
+    <button class="dialog-close" id="keymaps-close" type="button" aria-label="Close shortcuts">×</button>
+  </div>
+  <h2 id="keymaps-title">Keyboard shortcuts</h2>
+  <p>Use <kbd>?</kbd> to open this guide. Press Escape to close it.</p>
+  <div class="keymap-section">
+    <h3>File &amp; execution</h3>
+    <dl>
+      <div><dt>Run program</dt><dd><kbd>⌘ / Ctrl + Enter</kbd></dd></div>
+      <div><dt>Download source</dt><dd><kbd>⌘ / Ctrl + S</kbd></dd></div>
+      <div><dt>Open source file</dt><dd><kbd>⌘ / Ctrl + O</kbd></dd></div>
+      <div><dt>Show shortcuts</dt><dd><kbd>?</kbd><span class="shortcut-or">or</span><kbd>⌘ / Ctrl + /</kbd></dd></div>
+    </dl>
+    <h3>Editing &amp; inspection</h3>
+    <dl>
+      <div><dt>Indent selection</dt><dd><kbd>Tab</kbd></dd></div>
+      <div><dt>Outdent selection</dt><dd><kbd>Shift + Tab</kbd></dd></div>
+      <div><dt>Leave code editor</dt><dd><kbd>Esc</kbd></dd></div>
+      <div><dt>Navigate tabs</dt><dd><kbd>←</kbd><kbd>→</kbd></dd></div>
+      <div><dt>Next / previous AST match</dt><dd><kbd>Enter / Shift + Enter</kbd></dd></div>
+    </dl>
+  </div>
+  <div class="dialog-actions"><button type="button" class="dialog-secondary" id="keymaps-done">Close</button></div>
+</dialog>
 </body>
 </html>

@@ -12,7 +12,7 @@ node --check frontend/app.js
 python3 -B app.py
 ```
 
-Visit `http://127.0.0.1:8000` and verify that Tokenize, Analyze, Run, the AST inspector, and `GIMMEH` input all work. The JavaScript syntax check requires Node, but running the local app does not.
+Visit `http://127.0.0.1:8000` and verify that Tokenize, Analyze, Run, the AST inspector, the **Shortcuts** reference, the sample selector, and `GIMMEH` input all work. The JavaScript syntax check requires Node, but running the local app does not.
 
 Review `git status --short` and `git ls-files` before sharing a public repository. Do not commit private course PDFs, credentials, secrets, user data, build caches, or internal AI/developer handoffs. Only the code, tests, necessary license, and public documentation belong in the published repository.
 
@@ -33,7 +33,7 @@ VISIBLE "HAI, WORLD!"
 KTHXBYE
 ```
 
-Press **Run**. Also try **Analyze** and **Tokenize**, and confirm selecting an AST node highlights its source location. On a small screen, test a lexer error: the Problems view should open, and **Reveal in source** should take you back to the highlighted code.
+Press **Run**. Also try **Analyze** and **Tokenize**, and confirm selecting an AST node highlights its source location. Check the **Shortcuts** footer control, **Shift + /** (`?`), and Cmd/Ctrl + /, the source replacement dialog, the download filename dialog, and the styled sample menu. On a small screen, test a lexer error: the Problems view should open, and **Reveal in source** should take you back to the highlighted code.
 
 ## Option 2 — Vercel CLI
 

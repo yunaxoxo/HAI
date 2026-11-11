@@ -208,10 +208,17 @@ function renderOutput() {
   else if (!state.waiting && !state.diagnostics.length) area.append(el('div','console-empty','Run a program to see its output.'));
   if (state.waiting) {
     const form = el('form','prompt-row');
-    const label = el('label','',state.prompt || 'GIMMEH input');
-    const input = el('input'); input.type = 'text'; input.autocomplete = 'off'; input.setAttribute('aria-label','GIMMEH input answer');
-    const submit = el('button','','Send'); submit.type = 'submit';
-    form.append(label,input,submit);
+    form.setAttribute('aria-label','Program input');
+    const caption = el('div','prompt-caption');
+    caption.append(el('span','prompt-kicker','GIMMEH'));
+    const label = el('label','',state.prompt || 'Enter a value');
+    label.htmlFor='prompt-answer';
+    caption.append(label);
+    const controls = el('div','prompt-controls');
+    const input = el('input'); input.type='text'; input.id='prompt-answer'; input.name='answer';
+    input.autocomplete='off'; input.placeholder='Enter value';
+    const submit = el('button','prompt-send','Send'); submit.type='submit';
+    controls.append(input,submit); form.append(caption,controls);
     form.addEventListener('submit',e => {
       e.preventDefault(); if (state.busy) return;
       state.inputs.push(input.value); state.waiting = false; renderOutput(); run(false);
@@ -724,13 +731,125 @@ function updateSource(value,name='playground.lol') {
   setStatus('READY','Source loaded.');
   showMobileView('code');
 }
-function save() {
+function downloadSource(filename) {
   const url=URL.createObjectURL(new Blob([sourceText()],{type:'text/plain;charset=utf-8'}));
-  const anchor=el('a');anchor.href=url;anchor.download=state.filename||'playground.lol';
+  const anchor=el('a');anchor.href=url;anchor.download=filename;
   document.body.append(anchor);anchor.click();anchor.remove();
   window.setTimeout(()=>URL.revokeObjectURL(url),1200);
-  dirtyState(false);setStatus('SAVED',`Downloaded ${state.filename}.`,'success');
+  setFilename(filename);dirtyState(false);setStatus('DOWNLOADED',`Downloaded ${state.filename}.`,'success');
 }
+
+// These are application-owned confirmations: the OS file picker and download
+// destination (if shown by the browser) are necessarily browser-controlled.
+const decisionDialog=$('#workbench-dialog');
+const decisionForm=$('#dialog-form');
+async function requestDecision({context='SOURCE',title,message,action='Continue',filename=null}) {
+  if(decisionDialog.open)return false;
+  $('#dialog-context').textContent=context;
+  $('#dialog-title').textContent=title;
+  $('#dialog-copy').textContent=message;
+  $('#dialog-confirm').textContent=action;
+  const field=$('#dialog-file-field'),input=$('#dialog-filename');
+  const withFilename=typeof filename==='string';
+  field.hidden=!withFilename;
+  input.value=withFilename?filename:'';
+  input.classList.remove('invalid');
+  return new Promise(resolve=>{
+    let finished=false;
+    const finish=result=>{
+      if(finished)return;
+      finished=true;decisionDialog.close();resolve(result);
+    };
+    const cancel=()=>finish(false);
+    decisionForm.onsubmit=e=>{
+      e.preventDefault();
+      if(withFilename){
+        let name=input.value.trim().replace(/[\\/:*?"<>|]/g,'_');
+        if(!name || /^\.+$/.test(name)){
+          input.classList.add('invalid');input.focus();return;
+        }
+        if(!/\.(lol|txt)$/i.test(name))name+='.lol';
+        finish(name);
+      }else finish(true);
+    };
+    $('#dialog-cancel').onclick=cancel;
+    $('#dialog-close').onclick=cancel;
+    decisionDialog.oncancel=e=>{e.preventDefault();cancel();};
+    decisionDialog.onclose=()=>{if(!finished){finished=true;resolve(false);}};
+    decisionDialog.showModal();
+    requestAnimationFrame(()=>withFilename?input.select():$('#dialog-cancel').focus());
+  });
+}
+async function save() {
+  const filename=await requestDecision({
+    context:'SOURCE FILE', title:'Download source',
+    message:'Save a local copy of the current program.',
+    action:'Download',filename:state.filename||'playground.lol'
+  });
+  if(filename)downloadSource(filename);
+}
+
+// The default browser select popup does not share app styling. Keep the
+// hidden select for sample state, but use an accessible in-app menu.
+const sampleSelect=$('#example');
+const sampleTrigger=$('#sample-trigger');
+const sampleMenu=$('#sample-menu');
+const sampleCurrent=$('#sample-current');
+function updateSampleLabel(){
+  sampleCurrent.textContent=sampleSelect.selectedOptions[0]?.textContent||'Choose a sample';
+  for(const button of sampleMenu.querySelectorAll('[role="menuitemradio"]')){
+    button.setAttribute('aria-checked',String(button.dataset.value===sampleSelect.value));
+  }
+}
+function closeSampleMenu(returnFocus=false){
+  sampleMenu.hidden=true;sampleTrigger.setAttribute('aria-expanded','false');
+  if(returnFocus)sampleTrigger.focus();
+}
+function openSampleMenu(focusLast=false){
+  sampleMenu.hidden=false;sampleTrigger.setAttribute('aria-expanded','true');
+  const items=[...sampleMenu.querySelectorAll('[role="menuitemradio"]')];
+  if(!items.length)return;
+  const selected=items.find(item=>item.dataset.value===sampleSelect.value);
+  (focusLast?items[items.length-1]:selected||items[0]).focus();
+}
+for(const option of [...sampleSelect.options]){
+  const item=el('button','sample-choice');item.type='button';item.role='menuitemradio';
+  item.dataset.value=option.value;item.textContent=option.textContent;
+  item.addEventListener('click',()=>{
+    sampleSelect.value=option.value;sampleSelect.dispatchEvent(new Event('change',{bubbles:true}));
+    closeSampleMenu(true);
+  });
+  sampleMenu.append(item);
+}
+sampleSelect.addEventListener('change',updateSampleLabel);
+updateSampleLabel();
+sampleTrigger.addEventListener('click',()=>sampleMenu.hidden?openSampleMenu():closeSampleMenu(true));
+sampleTrigger.addEventListener('keydown',e=>{
+  if(['ArrowDown','ArrowUp',' ','Enter'].includes(e.key)){
+    e.preventDefault();if(sampleMenu.hidden)openSampleMenu(e.key==='ArrowUp');
+  }
+});
+sampleMenu.addEventListener('keydown',e=>{
+  const items=[...sampleMenu.querySelectorAll('[role="menuitemradio"]')];
+  const current=items.indexOf(document.activeElement);
+  if(e.key==='Escape'){e.preventDefault();closeSampleMenu(true);}
+  else if(e.key==='Tab')closeSampleMenu();
+  else if(['ArrowDown','ArrowUp','Home','End'].includes(e.key)){
+    e.preventDefault();
+    const next=e.key==='Home'?0:e.key==='End'?items.length-1:(current+(e.key==='ArrowDown'?1:-1)+items.length)%items.length;
+    items[next].focus();
+  }
+});
+document.addEventListener('pointerdown',e=>{
+  if(!sampleMenu.hidden&&!$('#sample-selector').contains(e.target))closeSampleMenu();
+});
+
+const keymapsDialog=$('#keymaps-dialog');
+function openKeymaps(){if(decisionDialog.open||keymapsDialog.open)return;keymapsDialog.showModal();$('#keymaps-close').focus();}
+function closeKeymaps(){keymapsDialog.close();}
+$('#show-keymaps').addEventListener('click',openKeymaps);
+$('#keymaps-close').addEventListener('click',closeKeymaps);
+$('#keymaps-done').addEventListener('click',closeKeymaps);
 function attachTabKeys(selector,setter) {
   const tabs=$$(selector);
   tabs.forEach((item,index)=>item.addEventListener('keydown',e=>{
@@ -802,7 +921,14 @@ $('#stdin').addEventListener('input',()=>{
   state.inputs=[];state.waiting=false;state.output='';renderOutput();$('#run-duration').textContent='';
   setStatus('INPUT UPDATED','Run again to apply changes.');
 });
-$('#clear-input').addEventListener('click',()=>{
+$('#clear-input').addEventListener('click',async()=>{
+  if(!$('#stdin').value)return;
+  const okay=await requestDecision({
+    context:'INPUT',title:'Clear preset input?',
+    message:'The values prepared for GIMMEH will be removed. Your source code is unaffected.',
+    action:'Clear values'
+  });
+  if(!okay)return;
   $('#stdin').value=''; $('#stdin').dispatchEvent(new Event('input',{bubbles:true})); $('#stdin').focus();
 });
 $('#clear-input').disabled=true;
@@ -810,6 +936,7 @@ const mobileExamples=$('#mobile-samples-panel');
 const mobileSamplesToggle=$('#mobile-samples-toggle');
 function setMobileSamples(open) {
   $('#app-shell').classList.toggle('samples-open',open);
+  if(!open)closeSampleMenu();
   mobileSamplesToggle.setAttribute('aria-expanded',String(open));
   mobileSamplesToggle.setAttribute('aria-label',open?'Close sample programs':'Choose a sample program');
 }
@@ -817,18 +944,32 @@ mobileSamplesToggle.addEventListener('click',()=>setMobileSamples(mobileSamplesT
 mobileExamples.addEventListener('keydown',event=>{
   if(event.key==='Escape') {event.preventDefault();setMobileSamples(false);mobileSamplesToggle.focus();}
 });
-$('#load').addEventListener('click',()=>{
-  if(state.dirty&&!confirm('Replace unsaved source with the chosen example?'))return;
-  updateSource(EXAMPLES[$('#example').value], 'playground.lol');
-  setMobileSamples(false);
+$('#load').addEventListener('click',async()=>{
+  if(state.dirty){
+    const okay=await requestDecision({
+      context:'SAMPLE',title:'Replace current source?',
+      message:`Loading “${sampleSelect.selectedOptions[0]?.textContent||'this sample'}” replaces your unsaved edits. Download a copy first if you need them.`,
+      action:'Replace source'
+    });
+    if(!okay)return;
+  }
+  updateSource(EXAMPLES[sampleSelect.value], 'playground.lol');
+  closeSampleMenu();setMobileSamples(false);
 });
-$('#open').addEventListener('click',()=>$('#file').click());
+$('#open').addEventListener('click',()=>{closeSampleMenu();$('#file').click();});
 $('#file').addEventListener('change',async event=>{
   const file=event.target.files?.[0];if(!file)return;
   try {
     if(file.size>90_000)throw new Error('Choose a file smaller than 90 KB.');
     if(!/\.(lol|txt)$/i.test(file.name))throw new Error('Choose a .lol or .txt source file.');
-    if(state.dirty&&!confirm('Replace unsaved source with this file?'))return;
+    if(state.dirty){
+      const okay=await requestDecision({
+        context:'OPEN FILE',title:'Replace current source?',
+        message:`Opening “${file.name}” will replace your unsaved edits. Download a copy first if you need them.`,
+        action:'Open file'
+      });
+      if(!okay)return;
+    }
     updateSource(await file.text(),file.name);
   }catch(error){setStatus('FILE ERROR',error.message,'error');}
   finally {event.target.value='';}
@@ -857,12 +998,37 @@ divider.addEventListener('keydown',e=>{
 });
 window.addEventListener('resize',()=>editor.refresh());
 window.addEventListener('beforeunload',e=>{if(state.dirty){e.preventDefault();e.returnValue='';}});
-document.addEventListener('keydown',e=>{
-  const command=e.metaKey||e.ctrlKey;
-  if(!command || e.altKey) return;
-  if(e.key==='Enter'){e.preventDefault();run(true);}
-  else if(e.key.toLowerCase()==='s'){e.preventDefault();save();}
-  else if(e.key.toLowerCase()==='o'){e.preventDefault();$('#file').click();}
+document.addEventListener('keydown', e => {
+  const command = e.metaKey || e.ctrlKey;
+  if (e.altKey || e.isComposing) return;
+
+  // '?' is the discoverable shortcut. Some keyboard layouts report the
+  // combination as Shift+Slash rather than the '?' character.
+  const questionMark = !command && (
+    e.key === '?' || (e.shiftKey && (e.key === '/' || e.code === 'Slash'))
+  );
+  const commandSlash = command && (e.key === '/' || e.code === 'Slash');
+  if (questionMark || commandSlash) {
+    // In inputs and LOLCODE string/comment literals, '?' is text, not a
+    // command. Everywhere else (including the editor) it opens help.
+    const target = e.target;
+    const nativeField = target && target.matches &&
+      target.matches('input, textarea, [contenteditable="true"]');
+    const insideEditor = target && target.closest && target.closest('.CodeMirror');
+    const tokenType = insideEditor && editor && editor.getTokenTypeAt(editor.getCursor());
+    const typingLiteral = questionMark && insideEditor &&
+      /\b(string|comment)\b/.test(tokenType || '');
+    if (!typingLiteral && (!questionMark || !nativeField || insideEditor)) {
+      e.preventDefault();
+      if (!decisionDialog.open && !keymapsDialog.open) openKeymaps();
+    }
+    return;
+  }
+
+  if (!command || decisionDialog.open || keymapsDialog.open) return;
+  if (e.key === 'Enter') { e.preventDefault(); run(true); }
+  else if (e.key.toLowerCase() === 's') { e.preventDefault(); save(); }
+  else if (e.key.toLowerCase() === 'o') { e.preventDefault(); $('#file').click(); }
 });
 
 // Startup: a brief first-visit reveal, never an invented progress percentage.
