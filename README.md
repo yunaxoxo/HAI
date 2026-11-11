@@ -1,168 +1,92 @@
-# lolcode-interpreter
+# HAI.
 
-An interpreter for LOLCODE, written in Python.
+A small, source-linked language workbench for **LOLCODE**. Write and run programs, inspect lexer tokens, navigate the actual parser AST, and trace errors back to the source.
 
-## Status
-- [x] Lexer
-- [x] Parser
-- [x] Initial command-line interpreter (still in development)
-- [x] Web workbench (editor, tokens, syntax tree, run output, symbols)
+The interface is designed as a source-linked compiler explorer rather than a general-purpose IDE. A short source-to-AST trace introduces the editor once per tab session, with reduced-motion support and a Reload action if startup fails. Returning visits skip the intro. A full-height editor sits beside a split inspector and console. Controls and tabs use flat, understated styling, and compiler results come from the Python interpreter rather than simulated frontend data. The startup sequence uses HTML, CSS and SVG and requires no animation library or remote assets.
 
-## Requirements
+## Quick start
 
-Python 3 with the standard library. No additional packages are required.
+Requires **Python 3** with the standard library. No npm install, CDN connection, or separate frontend build is required.
 
-## Command-line usage
-
-Run the included sample program:
-
-```sh
-python3 -B interpreter.py source.txt
-```
-
-You can replace `source.txt` with the path to your own LOLCODE file. Running
-without a filename also uses `source.txt`. The sample prompts for input near
-the end through `GIMMEH`.
-
-The initial interpreter implements variables, assignments, typecasts,
-arithmetic and Boolean expressions, comparisons, string concatenation,
-console input/output, conditionals, switches, loops, and function calls.
-It is still in development; full LOLCODE compatibility is not yet verified.
-
-To inspect the sample's tokens or syntax tree separately:
-
-```sh
-python3 -B lexer.py
-python3 -B parser.py
-```
-
-## Web workbench
-
-Start the local frontend with Python (no additional packages needed):
-
-```sh
+```bash
 python3 -B app.py
 ```
 
-Open http://127.0.0.1:8000 in your browser. Stop the server with Ctrl+C.
+Open **http://127.0.0.1:8000**. The server binds to localhost and is intended for local development, not public internet hosting.
 
-- Write LOLCODE or load one of the included examples.
-- **Tokenize** shows lexer output with line and column; click a token row (or press Enter/Space when focused) to select its exact source lexeme.
-- **Analyze** adds an expandable syntax tree with source-linked nodes. Select
-  an AST node to select its exact source range; selecting a source expression
-  highlights the smallest matching AST node. The original JSON remains under
-  **View raw AST JSON**. Errors with known locations include Go to source.
-- **Run** executes the program and shows its output and variables. When the
-  program reaches `GIMMEH`, the Output panel shows a live prompt: type a value and
-  press Enter. The *Preset input* box is optional and answers prompts in advance.
-  Runs stop after 5 seconds.
-- Ctrl+Enter (Cmd+Enter on macOS) runs. In the editor, Esc then Tab moves focus out.
-- Open a `.lol` or `.txt` file, and save your editor contents as `playground.lol`.
+### Workbench features
 
-Run uses the command-line interpreter in a separate process. To ask for input
-live, the program is rerun from the start with each new answer added (no server
-sessions), so every answer is replayed deterministically. Keep a saved copy
-of your code before closing or refreshing the page. The server listens on
-localhost for local use.
+- **Editor:** CodeMirror-based editor with LOLCODE syntax highlighting, line numbers, indentation, active source selection, and diagnostics in the gutter.
+- **Tokenize:** inspect a compact table of lexemes, categories, and `line:column` positions. Filter tokens by text or type, then select a row to navigate to its source location.
+- **Analyze:** inspect the parser's real AST. Switch between a keyboard-navigable outline, a pannable/zoomable tree graph, and raw JSON. Each node displays actual values or operators when available. Select an AST node to reveal the corresponding source expression; selecting source also highlights its most specific matching AST node.
+- **AST exploration:** use **Find node** in Outline mode to locate node types, operators, names, or values. Press Enter/Shift+Enter to cycle matches, and Escape to clear search. Collapse/Expand folds branches. Selecting a node reveals a parent path, original properties, child count, and precise source span where available. Graph mode centers its initial view on the selected node (or program root).
+- **Source mapping:** AST paths and source spans are supplied by the parser. Maps are cleared after edits so outdated results cannot silently point to wrong code.
+- **Run:** execute locally in a bounded child process; see output, final variable values, and stage-specific diagnostics. The console’s Inputs disclosure accepts one preset value per line for `GIMMEH`, with a Clear input control. Interactive prompts remain available.
+- **File handling:** open `.lol` or `.txt` files, load examples, save the current program, and get warned about replacing unsaved source.
+- **Navigation:** switch between AST, Tokens, and Symbols; use Output and Problems for execution feedback. The bottom status bar displays the current state and source location without duplicating the editor toolbar.
+- **Responsive layout:** full-height editor beside a split inspector/output rail on desktop. On phones, Code / Explore / Output are full-width views. The top bar stays compact, with the Samples selector opened only when needed. Analyze and Tokenize lead to Explore on success; errors open Problems and its source navigation returns to Code.
 
-The course's `+` separator in `VISIBLE a + b` is supported. It is distinct
-from arithmetic addition, written `SUM OF a AN b`. Both Analyze and Run reject
-unexpected tokens after `KTHXBYE`, while still allowing the trailing functions
-supported by the course specification. See `docs/PARSER_FINDINGS.md` for the
-verified status of previously reported parser concerns.
+Useful shortcuts: **Cmd/Ctrl + Enter** to run; **Cmd/Ctrl + S** to download source; **Cmd/Ctrl + O** to open a source file; **Tab** to indent; **Shift + Tab** to unindent; **Esc** to leave the editor.
 
-For future source-to-AST UI work, the lexer exposes `tokenize_with_locations()`.
-`/api/tokenize` and `/api/analyze` return an additional `token_locations` array
-aligned with the existing `tokens` tuples. It contains 1-based line/column and
-0-based, half-open Python Unicode codepoint offsets. The frontend converts
-codepoint offsets to textarea UTF-16 offsets before selecting the lexeme.
-The parser's three-field token contract remains unchanged. The parser now
-accepts optional aligned token locations and records token-derived source spans
-for constructed AST nodes. Analyze adds a separate `ast_locations` map, keyed
-by JSON paths such as `$.body[0].values[0]`; the AST JSON itself is unchanged.
-Locations refer to **one analyzed revision**, not stable identifiers across edits.
-The frontend clears mappings when the source changes.
+`Clear` in the top toolbar clears results, **not** your program. The separate `Clear input` control clears only preset input values. Save downloads a `.lol` file; it does not automatically write back to an imported file.
 
-Parser errors can pinpoint the unexpected token or the end of a line (an empty
-span); errors with a known earlier location retain that location rather than
-receiving invented columns. Runtime errors inside expressions receive the
-innermost failing AST node's source range when available. See
-`docs/COMPILER_ATLAS_FOUNDATION.md` for details and limitations.
+## Backend and API
 
-## Tests
+The frontend sends JSON to three endpoints served by `app.py`:
 
-### Checking the course test programs
+| Route | Description |
+| --- | --- |
+| `POST /api/tokenize` | Lexer tokens and their source locations |
+| `POST /api/analyze` | Tokens, serialized AST, and a separate AST source-location map |
+| `POST /api/run` | Execution output, variables, input requests, and errors |
 
-The ten course programs are in `project-testcases-fixed/`. That folder is
-git-ignored, because the course materials may not be redistributable. Each
-contributor keeps a local copy in the repository root. The folder has no
-expected-output files, so this check only reports whether each program
-tokenizes, parses, and runs. It does not check that the output is correct.
+The lexer and parser continue to use their original three-value token tuples. The API additionally returns `token_locations`. `ast_locations` maps JSON paths such as `$.body[0].values[0]` to source spans. A location uses **1-based line and column** and **0-based, half-open Unicode codepoint offsets**. The editor converts those offsets to JavaScript UTF-16 indices.
 
-Run this from the repository root:
+The app preserves the supplied language grammar: `VISIBLE` operands may be separated by `+`; arithmetic addition is written `SUM OF x AN y`.
 
-```sh
-python3 -B - <<'EOF'
-from pathlib import Path
-from app import run_program
+For details about the API and frontend boundaries, see [Architecture](docs/ARCHITECTURE.md).
 
-for path in sorted(Path('project-testcases-fixed').glob('*.lol')):
-    source = path.read_bytes().decode('utf-8')
-    answers = []
-    for _ in range(10):
-        result = run_program(source, answers)
-        if not result['needs_input']:
-            break
-        answers.append('4')   # feeds 4 to every GIMMEH
-    status = 'OK' if result['ok'] else f"{result['error']['stage']}: {result['error']['message']}"
-    print(path.name, '->', status)
-EOF
-```
+## Running tests
 
-How it works:
-
-- `run_program` is the same function behind the workbench's Run button. It runs
-  the program in a separate process with a 5-second limit.
-- Each time a program reaches `GIMMEH`, `run_program` returns `needs_input`. The
-  loop adds the answer `4` and runs the program again, up to 10 times.
-- A status of `OK` means the program ran to the end without an error. Anything
-  else prints the stage (`lexer`, `parser`, or `runtime`) and the message.
-- Programs that do arithmetic on their input need numeric answers, which is why
-  the script feeds `4`. A non-numeric answer fails with "Cannot convert ... to a
-  number."
-- On Windows PowerShell, `<<'EOF'` does not work. Save the Python part as
-  `check_testcases.py` and run `python -B check_testcases.py`.
-
-Verified against the ten **user-supplied** course programs (November 2026):
-all 10 tokenize and parse. All 10 complete without reported runtime errors when
-provided with enough preset `"4"` answers. This verifies execution completion,
-**not** correctness of expected output (the ZIP contains no expected-output
-reference files). The supplied course programs are not included in this
-repository distribution.
-
-The earlier `PLUS`-separator and standalone-variable parser findings have
-already been resolved in `parser.py` and are now marked as historical in
-`docs/PARSER_FINDINGS.md`. Do not change the parser based on those stale findings.
-
-To test a single program, open it in the workbench (**Open**, then **Run**), or run:
-
-```sh
-python3 -B interpreter.py project-testcases-fixed/09_loops.lol
-```
-
-```sh
+```bash
 python3 -B -m unittest discover -q
+node --check frontend/app.js
 ```
 
-## Layout
+`node --check` is optional and requires Node.js; running the workbench does **not** require Node.
 
-- `lexer.py`, `parser.py`, `interpreter.py`: the language pipeline.
-- `app.py` and `frontend/`: the local web workbench.
-- `docs/`: maintenance notes and findings.
+The Python suite covers lexer behavior, interpreter integration, complete-program validation, runtime errors, and source mapping. Test coverage is not proof of compliance with every LOLCODE variant.
 
-## Repository housekeeping
+You can also run the command-line interpreter on a source file:
 
-`.gitignore` excludes Python caches, virtual environments, build output,
-local environment files, and operating system metadata. Keep source code,
-sample programs, tests, and documentation under version control.
+```bash
+python3 -B interpreter.py source.txt
+```
 
+## Project layout
+
+```text
+app.py                   Python HTTP server and API adapter
+lexer.py                 Tokenizer
+parser.py                AST construction and source locations
+interpreter.py           LOLCODE evaluator
+frontend/index.html      Workbench structure and accessible controls
+frontend/style.css       Design tokens, layout, responsive treatments
+frontend/app.js          Code editor integration, API state, AST navigation
+frontend/vendor/         Bundled CodeMirror editor and MIT license
+docs/ARCHITECTURE.md    Public technical architecture
+
+test_*.py                Regression and API tests
+```
+
+Locally, the runtime executes programs in a fresh Python child process. Interactive `GIMMEH` replays the accumulated input answers; it is **not** a paused debugger. The symbol inspector shows the **final visible variable snapshot**, not a time-travel trace. Very large AST graphs are capped for visual performance; the outline remains available for full traversal.
+
+## Third-party software
+
+The included **CodeMirror 5.58.3** editor is distributed under the MIT license. See `frontend/vendor/LICENSE.md`. This standalone bundle was chosen to keep the workbench fully runnable offline, without npm dependencies. It is **not** React, Vite, or CodeMirror 6.
+
+## Deploying to Vercel
+
+The repository also includes `vercel.json`, `requirements.txt`, and `api/index.py` for a Python serverless deployment. Import the repository as a Vercel project with the **repository root** as its Root Directory, and leave the framework preset at Other. The bundled editor assets do not need a JavaScript build.
+
+Vercel uses an in-process interpreter adapter instead of the local child-process runner. That path does **not** enforce the same five-second local subprocess timeout; the hosting platform limits execution separately. Verify your deployed endpoint behavior and resource limits before making it publicly available. This release has been tested locally but has not been live-deployed to Vercel. See [Deployment guide](DEPLOYMENT.md) for Git and CLI instructions and verification steps.
