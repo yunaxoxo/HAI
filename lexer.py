@@ -1,4 +1,7 @@
-"""Specification-focused lexer; tokens remain (kind, raw_lexeme, line)."""
+"""Specification-focused lexer with optional source spans for the workbench.
+
+The parser-facing tokenize() contract remains (kind, raw_lexeme, line).
+"""
 
 import re
 import os
@@ -110,34 +113,59 @@ COMMENT_RE = re.compile(r"BTW\b")
 class LexicalError(SyntaxError):
     """A SyntaxError with locations and completed tokens for the workbench."""
 
-    def __init__(self, message, line, column, tokens):
+    def __init__(self, message, line, column, tokens, locations, offset, source_length):
         super().__init__(f"Line {line}, column {column}: {message}")
         self.line = line
         self.column = column
+        self.end_line = line
+        # At EOF there is no offending character to underline. Use an
+        # empty span rather than inventing an offset beyond the source.
+        width = 1 if offset < source_length else 0
+        self.end_column = column + width
+        self.start_offset = offset
+        self.end_offset = offset + width
         self.tokens = list(tokens)
+        self.token_locations = list(locations)
 
 
 def tokenize(source):
-    """Return parser-compatible triples, preserving raw literal spelling.
+    """Return the existing parser-compatible three-element token tuples."""
+    tokens, _locations = tokenize_with_locations(source)
+    return tokens
 
-    Physical LF, CRLF, and CR endings all produce a canonical NEWLINE token.
-    Block markers must occupy their own lines, optionally followed by BTW.
+
+def tokenize_with_locations(source):
+    """Return (tokens, source spans), aligned by token index.
+
+    Positions are 1-based lines/columns and 0-based Python Unicode codepoint
+    offsets, with exclusive end positions. CRLF/CR are represented as the
+    canonical NEWLINE lexeme while spans preserve the original source offsets.
+    The parser still receives only the original three-element token tuples.
     """
     tokens = []
+    locations = []
     position = 0
     line_number = 1
     line_start = 0
     block_start = None
 
+    def span(start, end, start_line, start_column, end_line, end_column):
+        return {"line": start_line, "column": start_column,
+                "end_line": end_line, "end_column": end_column,
+                "start_offset": start, "end_offset": end}
+
     def fail(message, at=None):
         offset = position if at is None else at
-        raise LexicalError(message, line_number, offset - line_start + 1, tokens)
+        raise LexicalError(message, line_number, offset - line_start + 1,
+                           tokens, locations, offset, len(source))
 
     while position < len(source):
         # Handle line endings first, including those inside discarded comments.
         ending = NEWLINE_RE.match(source, position)
         if ending:
             tokens.append(("NEWLINE", "\n", line_number))
+            locations.append(span(position, ending.end(), line_number,
+                                  position - line_start + 1, line_number + 1, 1))
             position = ending.end()
             line_number += 1
             line_start = position
@@ -191,11 +219,14 @@ def tokenize(source):
                 fail("Invalid numeric literal or identifier beginning with a digit.")
         if name != "SKIP":
             tokens.append((name, text, line_number))
+            locations.append(span(position, match.end(), line_number,
+                                  position - line_start + 1, line_number,
+                                  match.end() - line_start + 1))
         position = match.end()
 
     if block_start is not None:
         fail(f"Unterminated block comment opened on line {block_start}; expected TLDR.")
-    return tokens
+    return tokens, locations
 
 def read_input(filepath):
     if not os.path.isfile(filepath):

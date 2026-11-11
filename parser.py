@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from functools import wraps
 from pprint import pprint
 from typing import Any, List, Optional
 from lexer import tokenize, read_input
@@ -190,9 +191,58 @@ class CompareExpr(ASTNode):
 class Concatenation(ASTNode):
     values: List[Any] = field(default_factory=list)
 
+def tracks_source_span(method):
+    """Attach a token-derived source span to a parsed AST node when requested.
+
+    Only metadata is added. The parser's node values, grammar, and existing
+    three-element token contract remain unchanged. The span covers exactly the
+    tokens consumed by the node-producing parse method.
+    """
+    @wraps(method)
+    def wrapped(self, *args, **kwargs):
+        start = self.position
+        node = method(self, *args, **kwargs)
+        if self.locations is None or not isinstance(node, ASTNode):
+            return node
+        # Outer dispatchers (parse_value/statement/expression) must not replace
+        # a location already recorded by the actual node constructor.
+        if id(node) in self.node_spans:
+            return node
+        stop = self.position
+        if start >= stop or stop > len(self.locations):
+            return node
+        # Keep newlines between meaningful tokens, but do not extend a node's
+        # selection past its last actual token just because the parser consumed
+        # a trailing line break while exiting a block.
+        indices = [i for i in range(start, stop) if self.tokens[i][0] != "NEWLINE"]
+        if not indices:
+            return node
+        first = self.locations[indices[0]]
+        last = self.locations[indices[-1]]
+        span = {"line": first["line"], "column": first["column"],
+                "end_line": last["end_line"], "end_column": last["end_column"],
+                "start_offset": first["start_offset"],
+                "end_offset": last["end_offset"]}
+        # O RLY? can attach an immediately preceding expression as its
+        # condition. Its source range should cover that expression as well.
+        if isinstance(node, Conditional) and node.condition is not None:
+            condition_span = self.node_spans.get(id(node.condition))
+            if condition_span and condition_span["start_offset"] < span["start_offset"]:
+                span.update(line=condition_span["line"],
+                            column=condition_span["column"],
+                            start_offset=condition_span["start_offset"])
+        self.node_spans[id(node)] = span
+        return node
+    return wrapped
+
+
 class Parser:
-    def __init__(self, tokens: list):
+    def __init__(self, tokens: list, locations=None):
         self.tokens = tokens
+        if locations is not None and len(locations) != len(tokens):
+            raise ValueError("Token locations must align with tokens.")
+        self.locations = locations
+        self.node_spans = {}
         self.position = 0
         #ensures proper usage for keywords like gtfo or found yr i.e
         self.loop_depth = 0
@@ -317,10 +367,12 @@ class Parser:
         return False
 
     #all the grammar methods based on the milestone
+    @tracks_source_span
     def parse(self) -> Program:
         return self.parse_program()
     
     #<program> ::= <function-definition>* HAI NEWLINE <program-body> KTHXBYE <function-definition>*
+    @tracks_source_span
     def parse_program(self) -> Program:
         self.skip_newlines()
         #get the top level functions before HAI or defined after KTHXBYE
@@ -372,6 +424,7 @@ class Parser:
         return statements
     
     #<statement> ::= <variable-section> | <assignment> | <typecast-statement> | <print> | <input> | <conditional> | <switch> | <loop> | <function-call> | <return> | <break> | <expression> | <comment>
+    @tracks_source_span
     def parse_statement(self) -> Optional[Any]:
         #<break>  i.e GTFO is only allowed in statements is handled by the parse_break func
         token = self.peek()
@@ -424,6 +477,7 @@ class Parser:
         raise SyntaxError(f"Line {token[2]}: Unexpected token '{token[1]}' ({token[0]})")
     
     #<variable-section> ::= WAZZUP NEWLINE <declaration-list> BUHBYE
+    @tracks_source_span
     def parse_variable_section(self) -> VariableSection:
         self.consume("WAZZUP")
         self.skip_newlines()
@@ -445,6 +499,7 @@ class Parser:
             self.skip_newlines()
         return declarations
     #<declaration> ::= I_HAS_A IDENTIFIER | I_HAS_A IDENTIFIER ITZ <value>
+    @tracks_source_span
     def parse_declaration(self) -> Declaration:
         self.consume("I_HAS_A")
         name = self.consume_identifier()
@@ -453,18 +508,21 @@ class Parser:
             val = self.parse_value()
         return Declaration(name=name, value=val)
     #<assignment> ::= IDENTIFIER R <value>
+    @tracks_source_span
     def parse_assignment(self) -> Assignment:
         name = self.consume_identifier()
         self.consume("R")
         val = self.parse_value()
         return Assignment(name=name, value=val)
     #<typecast-statement> ::= IDENTIFIER IS_NOW_A TYPE
+    @tracks_source_span
     def parse_typecast_statement(self) -> TypecastStmt:
         name = self.consume_identifier()
         self.consume("IS_NOW_A")
         type_token = self.consume("TYPE")
         return TypecastStmt(name=name, cast_type=type_token[1])
     #<print> ::= VISIBLE <print-list> [!]
+    @tracks_source_span
     def parse_print(self) -> PrintStmt:
         self.consume("VISIBLE")
         values = self.parse_print_list()
@@ -484,11 +542,13 @@ class Parser:
                 break
         return values
     #<input> ::= GIMMEH IDENTIFIER
+    @tracks_source_span
     def parse_input(self) -> InputStmt:
         self.consume("GIMMEH")
         name = self.consume_identifier()
         return InputStmt(name=name)
     #parses an O RLY? conditional block including YA RLY, MEBBE, and NO WAI.
+    @tracks_source_span
     def parse_conditional(self, condition: Optional[Any] = None) -> Conditional:
         self.consume("O_RLY?")
         self.skip_newlines()
@@ -522,6 +582,7 @@ class Parser:
             return self.parse_statement_list()
         return []
     #parses a WTF? switch-case block
+    @tracks_source_span
     def parse_switch(self) -> Switch:
         self.consume("WTF?")
         self.skip_newlines()
@@ -549,6 +610,7 @@ class Parser:
             return self.parse_statement_list()
         return []
     #Parses an IM IN YR loop.
+    @tracks_source_span
     def parse_loop(self) -> Loop:
         self.consume("IM_IN_YR")
         label = self.consume_identifier()
@@ -581,6 +643,7 @@ class Parser:
 
         return Loop(label=label, op=op, condition=cond, body=body)
     #Parses a HOW IZ I function declaration, tracking function scope depth.
+    @tracks_source_span
     def parse_function_definition(self) -> FuncDef:
         self.consume("HOW_IZ_I")
         name = self.consume_identifier()
@@ -605,6 +668,7 @@ class Parser:
                 params.append(p)
         return params
     #<function-call> ::= I_IZ IDENTIFIER <argument-list> MKAY
+    @tracks_source_span
     def parse_function_call(self) -> FuncCall:
         self.consume("I_IZ")
         name = self.consume_identifier()
@@ -622,6 +686,7 @@ class Parser:
                 args.append(self.parse_value())
         return args
     #parses a FOUND YR return statement
+    @tracks_source_span
     def parse_return(self) -> Return:
         token = self.consume("FOUND_YR")
         if self.func_depth <= 0:
@@ -630,6 +695,7 @@ class Parser:
         val = self.parse_value()
         return Return(value=val)
     #parses a GTFO break statement
+    @tracks_source_span
     def parse_break(self) -> Break:
         token = self.consume("GTFO")
         if self.loop_depth <= 0 and self.switch_depth <= 0 and self.func_depth <= 0:
@@ -637,6 +703,7 @@ class Parser:
             raise SyntaxError(f"Line {line}: 'GTFO' is not allowed outside loops, switch cases, or functions.")
         return Break()
     #<comment> ::= BTW <comment-text> | OBTW <comment-text> TLDR
+    @tracks_source_span
     def parse_comment(self) -> Comment:
         if self.match("BTW"):
             text = ""
@@ -652,6 +719,7 @@ class Parser:
         raise SyntaxError("Expected BTW or OBTW")
 
     #<value> ::= IDENTIFIER | <literal> | <expression> | <function-call>
+    @tracks_source_span
     def parse_value(self) -> Any:
         token = self.peek()
         if not token:
@@ -671,6 +739,7 @@ class Parser:
             return VarRef(name=name)
         raise SyntaxError(f"Line {token[2]}: Expected value, but found '{token[1]}' ({token[0]})")
     #<literal> ::= NUMBR | NUMBAR | YARN | TROOF | TYPE | NOOB
+    @tracks_source_span
     def parse_literal(self) -> Literal:
         token = self.peek()
         if not token:
@@ -701,6 +770,7 @@ class Parser:
 
         raise SyntaxError(f"Line {token[2]}: Expected literal, found '{token[1]}' ({token[0]})")
     #<expression> ::= <arithmetic-expression> | <boolean-expression> | <comparison-expression> | ...
+    @tracks_source_span
     def parse_expression(self) -> Any:
         token = self.peek()
         if not token:
@@ -717,6 +787,7 @@ class Parser:
             return self.parse_typecast_expression()
         raise SyntaxError(f"Line {token[2]}: Expected expression, found '{token[1]}' ({token[0]})")
     #<arithmetic-expression> ::= <arithmetic-operator> <value> AN <value>
+    @tracks_source_span
     def parse_arithmetic_expression(self) -> ArithExpr:
         op_token = self.advance()
         left = self.parse_value()
@@ -724,6 +795,7 @@ class Parser:
         right = self.parse_value()
         return ArithExpr(op=op_token[0], left=left, right=right)
     #<boolean-expression> ::= <binary-boolean> | <unary-boolean> | <infinite-boolean>
+    @tracks_source_span
     def parse_boolean_expression(self) -> Any:
         token = self.peek()
         if not token:
@@ -738,6 +810,7 @@ class Parser:
 
         raise SyntaxError(f"Line {token[2]}: Invalid boolean operator '{token[1]}'")
     #<binary-boolean> ::= <boolean-operator> <value> AN <value>
+    @tracks_source_span
     def parse_binary_boolean(self) -> BoolExpr:
         op_token = self.advance()
         left = self.parse_value()
@@ -745,11 +818,13 @@ class Parser:
         right = self.parse_value()
         return BoolExpr(op=op_token[0], left=left, right=right)
     #<unary-boolean> ::= NOT <value>
+    @tracks_source_span
     def parse_unary_boolean(self) -> NotExpr:
         self.consume("NOT")
         val = self.parse_value()
         return NotExpr(value=val)
     #<infinite-boolean> ::= <infinite-operator> <value-list> MKAY
+    @tracks_source_span
     def parse_infinite_boolean(self) -> InfiniteBool:
         
         op_token = self.advance()
@@ -759,6 +834,7 @@ class Parser:
         return InfiniteBool(op=op_token[0], values=values)
     #<comparison-expression> ::= <comparison-operator> <value> AN <value>
     #handle the numbr/numbar restriction during interpretation or potential syntax analysis
+    @tracks_source_span
     def parse_comparison_expression(self) -> CompareExpr:
         op_token = self.advance()
         left = self.parse_value()
@@ -766,6 +842,7 @@ class Parser:
         right = self.parse_value()
         return CompareExpr(op=op_token[0], left=left, right=right)
     #<concatenation> ::= SMOOSH <value-list> MKAY
+    @tracks_source_span
     def parse_concatenation(self) -> Concatenation:
         self.consume("SMOOSH")
         values = self.parse_value_list()
@@ -773,6 +850,7 @@ class Parser:
             self.advance()
         return Concatenation(values=values)
     #<typecast-expression> ::= MAEK <value> A TYPE | MAEK <value> TYPE
+    @tracks_source_span
     def parse_typecast_expression(self) -> TypecastExpr:
         self.consume("MAEK")
         val = self.parse_value()

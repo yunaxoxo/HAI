@@ -34,7 +34,8 @@ class FrontendTests(unittest.TestCase):
             connection.close()
 
     def test_assets_and_unknown_paths(self):
-        for path in ("/", "/style.css", "/app.js"):
+        for path in ("/", "/style.css", "/app.js",
+                     "/vendor/codemirror.js", "/vendor/codemirror.css"):
             status, body = self.request("GET", path)
             self.assertEqual(status, 200)
             self.assertTrue(body)
@@ -70,6 +71,25 @@ class FrontendTests(unittest.TestCase):
         for payload in ({"source": 42}, {}, []):
             self.assertEqual(self.request("POST", "/api/analyze", payload)[0], 400)
         self.assertEqual(self.request("POST", "/api/analyze", {"source": "x" * 100001})[0], 413)
+
+    def test_http_token_locations_and_error_contract(self):
+        source = 'HAI\nVISIBLE 5 + 3\nKTHXBYE'
+        for endpoint in ('/api/tokenize', '/api/analyze'):
+            status, body = self.request('POST', endpoint, {'source': source})
+            result = json.loads(body)
+            self.assertEqual(status, 200)
+            self.assertEqual(len(result['tokens']), len(result['token_locations']))
+            i = next(i for i, tok in enumerate(result['tokens']) if tok[0] == 'PLUS')
+            location = result['token_locations'][i]
+            self.assertEqual(source[location['start_offset']:location['end_offset']], '+')
+        status, body = self.request('POST', '/api/analyze', {'source': 'HAI\n@\nKTHXBYE'})
+        self.assertEqual(status, 200)
+        self.assertEqual((json.loads(body)['error']['line'], json.loads(body)['error']['column']), (2, 1))
+
+    def test_http_run_checks_complete_program(self):
+        status, body = self.request('POST', '/api/run', {'source': 'HAI\nKTHXBYE\nVISIBLE 1'})
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)['error']['stage'], 'parser')
 
 
 if __name__ == "__main__":

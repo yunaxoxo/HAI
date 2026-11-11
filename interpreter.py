@@ -5,6 +5,7 @@ Run: python interpreter.py source.txt
 
 # Imports and dependencies
 import sys
+from functools import wraps
 from lexer import tokenize
 from parser import ( # Imports all AST nodes classes
     Parser, Program, VariableSection, Declaration, Assignment,
@@ -24,10 +25,31 @@ class BreakSignal(Exception): # Exits a loop
     pass
 
 
+def attaches_runtime_location(method):
+    """Preserve the innermost failing AST node's real source location.
+
+    The interpreter is otherwise unaware of the workbench; CLI callers without
+    source spans retain the same behavior and exception messages.
+    """
+    @wraps(method)
+    def wrapped(self, node, *args, **kwargs):
+        try:
+            return method(self, node, *args, **kwargs)
+        except (RuntimeError, ZeroDivisionError, ValueError) as error:
+            if getattr(error, "start_offset", None) is None:
+                location = self.node_spans.get(id(node))
+                if location:
+                    for key, value in location.items():
+                        setattr(error, key, value)
+            raise
+    return wrapped
+
+
 class Interpreter:
     def __init__(self, input_func=input, output_func=print):
         self.scopes = [{"IT": None}] # Where variables are stored
                                      # "IT" stores the result of the most recent relevant expression or operation
+        self.node_spans = {}  # Optional parser metadata for precise runtime diagnostics
         self.functions = {} # Stores function definitions
                             # e.g. self.functions["PRE_ADD"] = function_definition
         self.input = input_func
@@ -114,6 +136,7 @@ class Interpreter:
         raise RuntimeError(f"Unknown type: {target}")
 
     # This produces the values of the expressions
+    @attaches_runtime_location
     def evaluate(self, node):
         if isinstance(node, Literal):
             value = node.value
@@ -178,6 +201,7 @@ class Interpreter:
             self.execute(statement)
 
     # This runs the statements
+    @attaches_runtime_location
     def execute(self, node):
         if node is None or isinstance(node, Comment):
             return
@@ -262,6 +286,7 @@ class Interpreter:
             self.evaluate(node)
 
     # This calls the function
+    @attaches_runtime_location
     def call(self, call):
         if call.name not in self.functions:
             raise RuntimeError(f"Undefined function: {call.name}")
@@ -285,7 +310,13 @@ class Interpreter:
 
     # These connect the lexer, parser, and interpreter
     def run_source(self, source):
-        return self.execute(Parser(tokenize(source)).parse())
+        tokens = tokenize(source)
+        parser = Parser(tokens)
+        program = parser.parse()
+        if not parser.is_at_end():
+            token = parser.peek()
+            raise SyntaxError(f"Line {token[2]}: Unexpected token '{token[1]}' after program.")
+        return self.execute(program)
 
     def run_file(self, filename):
         with open(filename, encoding="utf-8") as file:
