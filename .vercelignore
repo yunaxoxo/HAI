@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+previews/
+test_*.py
+*.zip
+project-testcases-fixed/

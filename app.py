@@ -196,6 +196,69 @@ def run_in_child():
     print(json.dumps(result))
 
 
+def run_program_inline(source, inputs):
+    """Run a program in-process for serverless environments such as Vercel.
+
+    This avoids spawning a child Python process, which can be unreliable in
+    serverless runtimes. It preserves the same response shape as run_program().
+    """
+    pending_inputs = list(inputs or [])
+    captured = []
+    interpreter = Interpreter()
+
+    def fake_output(text="", end="\n"):
+        captured.append(f"{text}{end}")
+
+    def fake_input(prompt=""):
+        if not pending_inputs:
+            raise NeedInput(prompt)
+        answer = pending_inputs.pop(0)
+        captured.append(f"{prompt}{answer}\n")
+        return answer
+
+    interpreter.output, interpreter.input = fake_output, fake_input
+    try:
+        tokens, locations = tokenize_with_locations(source)
+        program, spans = parse_complete(tokens, locations)
+        interpreter.node_spans = spans
+        interpreter.execute(program)
+        return {
+            "ok": True,
+            "needs_input": False,
+            "output": "".join(captured)[:MAX_OUTPUT_CHARACTERS],
+            "symbols": [
+                {"name": name, "type": interpreter.cast(value, "TYPE"), "value": interpreter.display(value)}
+                for name, value in interpreter.variables.items()
+            ],
+            "error": None,
+        }
+    except NeedInput as waiting:
+        return {
+            "ok": True,
+            "needs_input": True,
+            "prompt": waiting.prompt,
+            "output": "".join(captured)[:MAX_OUTPUT_CHARACTERS],
+            "symbols": [
+                {"name": name, "type": interpreter.cast(value, "TYPE"), "value": interpreter.display(value)}
+                for name, value in interpreter.variables.items()
+            ],
+            "error": None,
+        }
+    except (SyntaxError, RuntimeError, ZeroDivisionError, RecursionError, ValueError) as error:
+        if isinstance(error, RecursionError):
+            error = ValueError("Expressions are nested too deeply. Try simplifying the program.")
+        return {
+            "ok": False,
+            "needs_input": False,
+            "output": "".join(captured)[:MAX_OUTPUT_CHARACTERS],
+            "symbols": [
+                {"name": name, "type": interpreter.cast(value, "TYPE"), "value": interpreter.display(value)}
+                for name, value in interpreter.variables.items()
+            ],
+            "error": error_details(error, "runtime"),
+        }
+
+
 # --- Run (server side) ---
 def run_program(source, inputs):
     """Runs a program in a throwaway Python process with a time limit.
@@ -235,7 +298,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         assets = {"/": ("index.html", "text/html"),
                   "/style.css": ("style.css", "text/css"),
-                  "/app.js": ("app.js", "text/javascript")}
+                  "/app.js": ("app.js", "text/javascript"),
+                  "/vendor/codemirror.js": ("vendor/codemirror.js", "text/javascript"),
+                  "/vendor/codemirror.css": ("vendor/codemirror.css", "text/css")}
         asset = assets.get(self.path.split("?", 1)[0])
         if asset is None:
             self.send_error(404)
