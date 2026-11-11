@@ -1,67 +1,198 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>LOLCODE Workbench</title>
-  <link rel="stylesheet" href="/style.css">
-  <script src="/app.js" defer></script>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1, viewport-fit=cover" name="viewport"/>
+<meta content="#1b211e" name="theme-color"/>
+<meta content="HAI — a LOLCODE interpreter with source-linked compiler inspection." name="description"/>
+<title>HAI — LOLCODE Workbench</title>
+<link href="/vendor/codemirror.css" rel="stylesheet"/>
+<link href="/style.css" rel="stylesheet"/>
+<script>
+window.addEventListener('DOMContentLoaded', function () {
+  const retry = document.getElementById('boot-retry');
+  if (retry) retry.addEventListener('click', function () { window.location.reload(); });
+  window.setTimeout(function () {
+    if (!document.body.classList.contains('workbench-ready')) {
+      const label = document.getElementById('boot-status');
+      if (label) label.textContent = 'Editor could not start';
+      document.body.classList.add('boot-error');
+      const retry = document.getElementById('boot-retry');
+      if (retry) retry.hidden = false;
+    }
+  }, 9000);
+});
+</script>
+<script defer src="/vendor/codemirror.js"></script>
+<script defer src="/app.js"></script>
 </head>
 <body>
-  <header>
-    <a class="brand" href="/" aria-label="LOLCODE Workbench home"><b>:3</b> LOLCODE <span class="muted">workbench</span></a>
-    <ol class="pipeline" aria-hidden="true"><li data-stage="lexer"><i></i>Lexer</li><li data-stage="parser"><i></i>Parser</li><li data-stage="runtime"><i></i>Run</li></ol>
-    <div class="controls">
-      <label class="visually-hidden" for="example">Example program</label>
-      <select id="example">
-        <option value="hello">Hello, world</option>
-        <option value="math">Variables &amp; math</option>
-        <option value="conditional">Conditional</option>
-        <option value="input">Input (GIMMEH)</option>
-      </select>
-      <button id="load" class="quiet">Load</button>
-      <button id="open" class="quiet">Open</button>
-      <input type="file" id="file" accept=".lol,.txt" hidden>
-      <button id="download" class="quiet">Save</button>
+<div class="boot-screen" id="boot-screen" role="status" aria-label="Starting HAI workbench" aria-live="polite">
+  <div class="boot-layout">
+    <div class="boot-heading">
+      <div class="boot-name">HAI<span>.</span></div>
+      <div class="boot-subtitle">LOLCODE WORKBENCH</div>
     </div>
-  </header>
-  <main>
-    <section class="panel editor-panel" aria-label="Code editor">
-      <div class="panel-head">
-        <span class="file">playground.lol</span>
-        <div class="actions">
-          <button id="tokenize">Tokenize</button>
-          <button id="analyze">Analyze</button>
-          <button id="run" class="primary">Run &#9654;</button>
+    <div class="boot-trace" aria-hidden="true">
+      <div class="boot-source">
+        <div class="boot-trace-label">Source</div>
+        <div class="boot-code-line"><span class="boot-line-number">01</span><span>HAI</span></div>
+        <div class="boot-code-line boot-expression"><span class="boot-line-number">02</span><span><span class="boot-keyword">VISIBLE</span> <span class="boot-operation">SUM OF</span> <span class="boot-number">5</span> AN <span class="boot-number">3</span></span></div>
+        <div class="boot-code-line"><span class="boot-line-number">03</span><span>KTHXBYE</span></div>
+      </div>
+      <div class="boot-structure">
+        <div class="boot-trace-label">Syntax tree</div>
+        <div class="boot-root"><span>ArithExpr</span><span class="boot-operator">SUM_OF</span></div>
+        <div class="boot-branch" aria-hidden="true">
+          <svg viewBox="0 0 170 23" preserveAspectRatio="none" role="presentation"><path d="M85 0 V10 M44 20 V10 H126 V20"/></svg>
+        </div>
+        <div class="boot-leaves"><span>5</span><span>3</span></div>
+      </div>
+    </div>
+    <div class="boot-bottom">
+      <span class="boot-status" id="boot-status">Preparing editor</span>
+      <div class="boot-progress" aria-hidden="true"><span></span></div>
+      <button id="boot-retry" class="boot-retry" type="button" hidden>Reload</button>
+    </div>
+  </div>
+</div>
+<div class="app-shell" id="app-shell">
+<header class="global-header">
+  <a aria-label="HAI workbench home" class="brand" href="/">
+    <span class="brand-name">HAI<span class="brand-stop">.</span></span>
+  </a>
+
+  <div class="toolbar-groups">
+    <div class="toolbar-group header-actions example-group" id="mobile-samples-panel">
+      <label class="visually-hidden" for="example">Sample program</label>
+      <div class="select-shell">
+        <span class="select-prefix">Sample</span>
+        <select id="example" title="Choose a sample program">
+          <option value="hello">Hello, world</option>
+          <option value="math">Variables &amp; math</option>
+          <option value="conditional">Conditional</option>
+          <option value="input">Input (GIMMEH)</option>
+          <option value="nested">Nested expressions</option>
+        </select>
+      </div>
+      <button class="btn header-quiet" id="load" title="Load the selected sample">Load</button>
+    </div>
+
+    <div class="toolbar-group file-actions">
+      <button class="btn header-quiet" id="open" title="Open a .lol file (Cmd/Ctrl+O)">Open</button>
+      <button class="btn header-quiet" id="download" title="Download the current .lol file (Cmd/Ctrl+S)">Save</button>
+      <button class="btn header-quiet mobile-samples-toggle" id="mobile-samples-toggle" type="button" aria-controls="mobile-samples-panel" aria-expanded="false">Samples <span class="mobile-samples-caret" aria-hidden="true"></span></button>
+      <input accept=".lol,.txt,text/plain" hidden id="file" type="file"/>
+    </div>
+
+    <div class="toolbar-group action-cluster">
+      <button class="btn action" id="tokenize" title="Inspect lexical tokens">Tokenize</button>
+      <button class="btn action" id="analyze" title="Generate AST and source map">Analyze</button>
+      <button class="btn run" id="run" title="Run program (Cmd/Ctrl + Enter)"><span aria-hidden="true" class="play-triangle"></span>Run</button>
+      <button class="btn reset" id="reset" title="Clear results without changing the source">Clear</button>
+    </div>
+  </div>
+</header>
+
+<div class="workspace-column">
+  <nav aria-label="Mobile workspace views" class="mobile-views">
+    <button aria-pressed="true" class="mobile-view active" id="mobile-code" type="button">Code</button>
+    <button aria-pressed="false" class="mobile-view" id="mobile-inspect" type="button">Explore</button>
+    <button aria-pressed="false" class="mobile-view" id="mobile-console" type="button">Output</button>
+  </nav>
+
+  <main class="workbench" id="workbench" style="--source-share:64%">
+    <section aria-label="LOLCODE source editor" class="source-pane" id="source-pane">
+      <div class="pane-header source-header">
+        <div aria-label="Active source file" class="document-status">
+          <span class="document-name" id="filename">playground.lol</span>
+          <span class="dirty-indicator" hidden id="dirty-indicator" title="Unsaved changes">●</span>
+          <span class="analysis-stamp" id="analysis-stamp">Not analyzed</span>
         </div>
       </div>
-      <div class="editor-wrap">
-        <pre id="lines" aria-hidden="true">1</pre>
-        <textarea id="source" aria-label="LOLCODE source code" spellcheck="false" autocapitalize="off" autocomplete="off" wrap="off"></textarea>
-      </div>
-      <details class="stdin">
-        <summary>Preset input <span class="muted">(optional, one value per line; otherwise GIMMEH asks while running)</span></summary>
-        <textarea id="stdin" aria-label="Values for GIMMEH, one per line" spellcheck="false" rows="3"></textarea>
-      </details>
-      <div class="panel-foot"><span id="position">Ln 1, Col 1</span><span>Ctrl/&#8984;+Enter runs &middot; Esc then Tab leaves the editor</span></div>
+      <div class="editor-mount" id="editor-mount"><textarea aria-label="LOLCODE source code" autocapitalize="off" autocomplete="off" id="source" spellcheck="false"></textarea></div>
     </section>
-    <section class="panel results-panel" aria-label="Results">
-      <div class="panel-head">
-        <div class="tabs" role="tablist" aria-label="Results">
-          <button id="output-tab" role="tab" aria-selected="true" aria-controls="output-panel" tabindex="0">Output</button>
-          <button id="tokens-tab" role="tab" aria-selected="false" aria-controls="tokens-panel" tabindex="-1">Tokens <span id="token-count">0</span></button>
-          <button id="tree-tab" role="tab" aria-selected="false" aria-controls="tree-panel" tabindex="-1">Syntax tree</button>
-          <button id="symbols-tab" role="tab" aria-selected="false" aria-controls="symbols-panel" tabindex="-1">Symbols</button>
+
+    <div aria-label="Resize editor and inspector" aria-orientation="vertical" aria-valuemax="70" aria-valuemin="30" aria-valuenow="64" class="pane-resizer" id="pane-resizer" role="separator" tabindex="0" title="Drag to resize · Arrow keys adjust"></div>
+
+    <section aria-label="Compiler inspector" class="inspector-pane" id="inspector-pane">
+      <div class="pane-header inspector-header">
+        <div aria-label="Compiler views" class="inspector-tabs" role="tablist">
+        <button aria-controls="ast-panel" aria-selected="true" class="inspector-tab active" data-inspector="ast" id="ast-tab" role="tab" tabindex="0">AST <span class="tab-counter" id="ast-count" hidden></span></button>
+        <button aria-controls="tokens-panel" aria-selected="false" class="inspector-tab" data-inspector="tokens" id="tokens-tab" role="tab" tabindex="-1">Tokens <span class="tab-counter" id="token-count" hidden></span></button>
+        <button aria-controls="symbols-panel" aria-selected="false" class="inspector-tab" data-inspector="symbols" id="symbols-tab" role="tab" tabindex="-1">Symbols <span class="tab-counter" id="symbol-count" hidden></span></button>
         </div>
-        <button id="clear" class="quiet">Clear</button>
+        <span class="header-spacer"></span>
+        <button aria-pressed="false" class="text-action" id="explore" title="Give the inspector more space">Expand</button>
       </div>
-      <div id="output-panel" role="tabpanel" aria-labelledby="output-tab" class="result-content"></div>
-      <div id="tokens-panel" role="tabpanel" aria-labelledby="tokens-tab" class="result-content" hidden></div>
-      <div id="tree-panel" role="tabpanel" aria-labelledby="tree-tab" class="result-content" hidden></div>
-      <div id="symbols-panel" role="tabpanel" aria-labelledby="symbols-tab" class="result-content" hidden></div>
+
+      <div aria-labelledby="ast-tab" class="inspector-content" id="ast-panel" role="tabpanel">
+        <div aria-label="AST display mode" class="ast-view-toolbar" role="group">
+          <button aria-pressed="true" class="mode-btn active" data-mode="outline">Outline</button>
+          <button aria-pressed="false" class="mode-btn" data-mode="graph">Graph</button>
+          <button aria-pressed="false" class="mode-btn" data-mode="raw">JSON</button>
+          <span class="header-spacer"></span>
+          <span class="mode-hint" id="tree-hint"></span>
+          <div class="outline-tools" id="outline-tools" hidden>
+            <label class="ast-find-field">
+              <span class="visually-hidden">Find AST node by type, name, or value</span>
+              <input id="ast-find" type="search" autocomplete="off" placeholder="Find in tree" aria-keyshortcuts="Enter"/>
+              <span class="ast-find-count" id="ast-find-count" aria-live="polite"></span>
+            </label>
+            <button id="ast-fold" type="button" class="ast-fold" title="Collapse AST branches">Collapse</button>
+          </div>
+          <div class="graph-controls" hidden id="graph-controls">
+            <button aria-label="Zoom graph out" id="zoom-out" title="Zoom out" type="button">−</button>
+            <button id="zoom-fit" title="Fit the whole tree" type="button">Fit</button>
+            <button aria-label="Zoom graph in" id="zoom-in" title="Zoom in" type="button">+</button>
+          </div>
+        </div>
+        <div class="ast-surface" id="ast-surface"><div class="empty-state">Analyze the program to explore its structure.</div></div>
+        <div class="node-details" hidden id="node-details"></div>
+      </div>
+
+      <div aria-labelledby="tokens-tab" class="inspector-content" hidden id="tokens-panel" role="tabpanel">
+        <div class="data-toolbar filter-toolbar"><label class="search-wrapper"><span class="visually-hidden">Filter tokens</span><input autocomplete="off" id="token-filter" placeholder="Filter tokens by text or type" type="search"/></label></div>
+        <div class="data-scroll" id="token-surface"></div>
+      </div>
+
+      <div aria-labelledby="symbols-tab" class="inspector-content" hidden id="symbols-panel" role="tabpanel">
+        <div class="data-toolbar"><span class="dim-text" id="symbol-caption">Final values after execution</span></div>
+        <div class="data-scroll" id="symbol-surface"></div>
+      </div>
+    </section>
+
+    <section aria-label="Execution output and diagnostics" class="console-pane" id="console-pane">
+      <div class="console-heading">
+        <div aria-label="Execution views" class="console-tabs" role="tablist">
+          <button aria-controls="console-output" aria-selected="true" class="console-tab active" data-console="output" id="console-output-tab" role="tab" tabindex="0">Output</button>
+          <button aria-controls="console-problems" aria-selected="false" class="console-tab" data-console="problems" id="console-problems-tab" role="tab" tabindex="-1">Problems <span id="problem-count">0</span></button>
+        </div>
+        <span class="header-spacer"></span>
+        <span aria-live="polite" class="run-duration" id="run-duration"></span>
+        <button aria-controls="preset-input-wrap" aria-expanded="false" class="text-action console-input-toggle" id="toggle-input" title="Show or hide preset input values">Inputs <span aria-hidden="true" class="toggle-caret"></span></button>
+      </div>
+      <div class="preset-input-wrap" hidden id="preset-input-wrap">
+        <div class="input-caption"><label for="stdin">Program input</label><span>One value per line, read by GIMMEH.</span></div>
+        <div class="input-field"><textarea id="stdin" placeholder="Input values (optional)" rows="3" spellcheck="false"></textarea><button id="clear-input" class="input-clear" type="button" title="Clear preset input values">Clear input</button></div>
+      </div>
+      <div aria-labelledby="console-output-tab" class="console-content" id="console-output" role="tabpanel"><div class="console-empty">Output appears after running a program.</div></div>
+      <div aria-labelledby="console-problems-tab" class="console-content" hidden id="console-problems" role="tabpanel"><div class="console-empty">No diagnostics.</div></div>
     </section>
   </main>
-  <footer id="status" class="status" role="status" aria-live="polite"><b id="status-label">READY</b><span id="status-message">Write or load a program, then Tokenize, Analyze, or Run.</span></footer>
+</div>
+
+<footer class="statusbar">
+  <div class="status-main" role="status" aria-live="polite">
+    <span class="status-indicator" id="status-indicator"></span>
+    <strong id="status-label">READY</strong>
+    <span id="status-message"></span>
+  </div>
+  <div class="status-meta">
+    <span id="selected-range" hidden></span>
+    <span id="editor-where">Ln 1 · Col 1</span>
+  </div>
+</footer>
+</div>
 </body>
 </html>
-
