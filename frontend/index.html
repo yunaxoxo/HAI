@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1, viewport-fit=cover" name="viewport"/>
-<meta content="#1b211e" name="theme-color"/>
+<meta content="#202123" name="theme-color"/>
 <meta content="HAI — a LOLCODE interpreter with source-linked compiler inspection." name="description"/>
 <title>HAI — LOLCODE Workbench</title>
 <link href="/vendor/codemirror.css" rel="stylesheet"/>
@@ -33,24 +33,8 @@ window.addEventListener('DOMContentLoaded', function () {
       <div class="boot-name">HAI<span>.</span></div>
       <div class="boot-subtitle">LOLCODE WORKBENCH</div>
     </div>
-    <div class="boot-trace" aria-hidden="true">
-      <div class="boot-source">
-        <div class="boot-trace-label">Source</div>
-        <div class="boot-code-line"><span class="boot-line-number">01</span><span>HAI</span></div>
-        <div class="boot-code-line boot-expression"><span class="boot-line-number">02</span><span><span class="boot-keyword">VISIBLE</span> <span class="boot-operation">SUM OF</span> <span class="boot-number">5</span> AN <span class="boot-number">3</span></span></div>
-        <div class="boot-code-line"><span class="boot-line-number">03</span><span>KTHXBYE</span></div>
-      </div>
-      <div class="boot-structure">
-        <div class="boot-trace-label">Syntax tree</div>
-        <div class="boot-root"><span>ArithExpr</span><span class="boot-operator">SUM_OF</span></div>
-        <div class="boot-branch" aria-hidden="true">
-          <svg viewBox="0 0 170 23" preserveAspectRatio="none" role="presentation"><path d="M85 0 V10 M44 20 V10 H126 V20"/></svg>
-        </div>
-        <div class="boot-leaves"><span>5</span><span>3</span></div>
-      </div>
-    </div>
     <div class="boot-bottom">
-      <span class="boot-status" id="boot-status">Preparing editor</span>
+      <span class="boot-status" id="boot-status">Opening workbench</span>
       <div class="boot-progress" aria-hidden="true"><span></span></div>
       <button id="boot-retry" class="boot-retry" type="button" hidden>Reload</button>
     </div>
@@ -66,9 +50,8 @@ window.addEventListener('DOMContentLoaded', function () {
     <div class="toolbar-group header-actions example-group" id="mobile-samples-panel">
       <label class="visually-hidden" for="example">Sample program</label>
       <div class="select-shell sample-selector" id="sample-selector">
-        <span class="select-prefix">Sample</span>
-        <button class="sample-trigger" type="button" id="sample-trigger" aria-haspopup="menu" aria-expanded="false" aria-controls="sample-menu" aria-label="Choose sample program">
-          <span id="sample-current">Hello, world</span><span class="sample-chevron" aria-hidden="true"></span>
+        <button class="sample-trigger" type="button" id="sample-trigger" aria-haspopup="menu" aria-expanded="false" aria-controls="sample-menu" aria-label="Load a sample program">
+          <span id="sample-current">Examples</span><span class="sample-chevron" aria-hidden="true"></span>
         </button>
         <div class="sample-menu" id="sample-menu" role="menu" aria-label="Sample programs" hidden></div>
         <select id="example" hidden aria-hidden="true" tabindex="-1">
@@ -79,7 +62,6 @@ window.addEventListener('DOMContentLoaded', function () {
           <option value="nested">Nested expressions</option>
         </select>
       </div>
-      <button class="btn header-quiet" id="load" title="Load the selected sample">Load</button>
     </div>
 
     <div class="toolbar-group file-actions">
@@ -93,7 +75,6 @@ window.addEventListener('DOMContentLoaded', function () {
       <button class="btn action" id="tokenize" title="Inspect lexical tokens">Tokenize</button>
       <button class="btn action" id="analyze" title="Generate AST and source map">Analyze</button>
       <button class="btn run" id="run" title="Run program (Cmd/Ctrl + Enter)"><span aria-hidden="true" class="play-triangle"></span>Run</button>
-      <button class="btn reset" id="reset" title="Clear results without changing the source">Clear</button>
     </div>
   </div>
 </header>
@@ -174,7 +155,7 @@ window.addEventListener('DOMContentLoaded', function () {
         </div>
         <span class="header-spacer"></span>
         <span aria-live="polite" class="run-duration" id="run-duration"></span>
-        <button aria-controls="preset-input-wrap" aria-expanded="false" class="text-action console-input-toggle" id="toggle-input" title="Show or hide preset input values">Inputs <span aria-hidden="true" class="toggle-caret"></span></button>
+        <button aria-controls="preset-input-wrap" aria-expanded="false" class="text-action console-input-toggle" id="toggle-input" title="Show or hide preset input values">Preset input <span aria-hidden="true" class="toggle-caret"></span></button>
       </div>
       <div class="preset-input-wrap" hidden id="preset-input-wrap">
         <div class="input-caption"><label for="stdin">Program input</label><span>One value per line, read by GIMMEH.</span></div>
@@ -195,6 +176,7 @@ window.addEventListener('DOMContentLoaded', function () {
   <div class="status-meta">
     <span id="selected-range" hidden></span>
     <span id="editor-where">Ln 1 · Col 1</span>
+    <button class="keymap-trigger" id="reset" type="button" title="Clear compiler results without changing the source">Clear results</button>
     <button class="keymap-trigger" id="show-keymaps" type="button" aria-haspopup="dialog" aria-controls="keymaps-dialog" title="Show keyboard shortcuts (? or Cmd/Ctrl + /)" aria-keyshortcuts="Shift+Slash">Shortcuts</button>
   </div>
 </footer>
