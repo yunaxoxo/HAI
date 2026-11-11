@@ -35,3 +35,21 @@ playground.lol
 .vscode/
 .idea/
 
+
+# Internal working notes and course handoffs; keep outside the public repository.
+/docs/MAINTENANCE.md
+/docs/PARSER_FINDINGS.md
+/docs/REPAIR_SUMMARY.md
+/docs/LEXER_API_HANDOFF.md
+/docs/COMPILER_ATLAS_FOUNDATION.md
+
+# Local packaged archives and screenshots
+*.zip
+/preview-*.png
+/analysis-first.png
+/desktop-first.png
+/graph-first.png
+
+# Local Vercel project linkage and generated design previews
+.vercel/
+/previews/
