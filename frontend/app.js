@@ -216,7 +216,7 @@ function renderOutput() {
     caption.append(label);
     const controls = el('div','prompt-controls');
     const input = el('input'); input.type='text'; input.id='prompt-answer'; input.name='answer';
-    input.autocomplete='off'; input.placeholder='Enter value';
+    input.autocomplete='off'; input.placeholder='Type a value';
     const submit = el('button','prompt-send','Send'); submit.type='submit';
     controls.append(input,submit); form.append(caption,controls);
     form.addEventListener('submit',e => {
@@ -720,7 +720,7 @@ async function run(fresh=true) {
   $('#symbol-count').textContent=state.symbols.length; $('#symbol-count').hidden=false;
   $('#run-duration').textContent=`${Math.round(performance.now()-start)} ms`;
   renderOutput();renderSymbols();selectConsole('output');
-  if(state.waiting){setDiagnostics([]);setStages('runtime',false,true);setStatus('WAITING','Program requested input. Answer in the console.');}
+  if(state.waiting){setDiagnostics([]);setStages('runtime',false,true);setStatus('INPUT NEEDED','');}
   else if(data.ok){setDiagnostics([]);setStages('runtime');setStatus('EXECUTED','Run complete.', 'success');}
   else {setDiagnostics([data.error]);setStages(data.error.stage,true);setStatus(`${data.error.stage.toUpperCase()} ERROR`,data.error.message,'error');selectConsole('problems');}
   showMobileView('console');
@@ -796,7 +796,7 @@ const sampleTrigger=$('#sample-trigger');
 const sampleMenu=$('#sample-menu');
 const sampleCurrent=$('#sample-current');
 function updateSampleLabel(){
-  sampleCurrent.textContent=sampleSelect.selectedOptions[0]?.textContent||'Choose a sample';
+  sampleCurrent.textContent='Examples';
   for(const button of sampleMenu.querySelectorAll('[role="menuitemradio"]')){
     button.setAttribute('aria-checked',String(button.dataset.value===sampleSelect.value));
   }
@@ -815,10 +815,7 @@ function openSampleMenu(focusLast=false){
 for(const option of [...sampleSelect.options]){
   const item=el('button','sample-choice');item.type='button';item.role='menuitemradio';
   item.dataset.value=option.value;item.textContent=option.textContent;
-  item.addEventListener('click',()=>{
-    sampleSelect.value=option.value;sampleSelect.dispatchEvent(new Event('change',{bubbles:true}));
-    closeSampleMenu(true);
-  });
+  item.addEventListener('click',()=>loadSelectedSample(option.value));
   sampleMenu.append(item);
 }
 sampleSelect.addEventListener('change',updateSampleLabel);
@@ -944,18 +941,24 @@ mobileSamplesToggle.addEventListener('click',()=>setMobileSamples(mobileSamplesT
 mobileExamples.addEventListener('keydown',event=>{
   if(event.key==='Escape') {event.preventDefault();setMobileSamples(false);mobileSamplesToggle.focus();}
 });
-$('#load').addEventListener('click',async()=>{
+async function loadSelectedSample(value){
+  if(!Object.hasOwn(EXAMPLES,value))return;
+  const name=[...sampleSelect.options].find(option=>option.value===value)?.textContent || 'this sample';
+  closeSampleMenu();
   if(state.dirty){
     const okay=await requestDecision({
       context:'SAMPLE',title:'Replace current source?',
-      message:`Loading “${sampleSelect.selectedOptions[0]?.textContent||'this sample'}” replaces your unsaved edits. Download a copy first if you need them.`,
+      message:`Loading “${name}” replaces your unsaved edits. Download a copy first if you need them.`,
       action:'Replace source'
     });
-    if(!okay)return;
+    if(!okay){sampleTrigger.focus();return;}
   }
-  updateSource(EXAMPLES[sampleSelect.value], 'playground.lol');
-  closeSampleMenu();setMobileSamples(false);
-});
+  sampleSelect.value=value;
+  updateSampleLabel();
+  updateSource(EXAMPLES[value], 'playground.lol');
+  setMobileSamples(false);
+  sampleTrigger.focus();
+}
 $('#open').addEventListener('click',()=>{closeSampleMenu();$('#file').click();});
 $('#file').addEventListener('change',async event=>{
   const file=event.target.files?.[0];if(!file)return;
@@ -1031,24 +1034,10 @@ document.addEventListener('keydown', e => {
   else if (e.key.toLowerCase() === 'o') { e.preventDefault(); $('#file').click(); }
 });
 
-// Startup: a brief first-visit reveal, never an invented progress percentage.
-// The editor is initialized before the splash can be dismissed. Returning
-// visits skip the hold; reduced-motion users see the workbench immediately.
+// HAI starts immediately. The boot overlay is an error fallback, not a showpiece.
 state.revision=0;dirtyState(false);clearResults(true);renderPosition();showMobileView('code');
 setStatus('READY','');
-requestAnimationFrame(() => {
-  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  let firstVisit = false;
-  try { firstVisit = sessionStorage.getItem('hai-startup-viewed') !== '1'; }
-  catch (_) { /* Blocked browser storage must not block the workbench. */ }
-  const remaining = firstVisit && !prefersReducedMotion
-    ? Math.max(0, 740 - performance.now()) : 0;
-  window.setTimeout(() => {
-    try { sessionStorage.setItem('hai-startup-viewed','1'); }
-    catch (_) { /* Storage is optional. */ }
-    document.body.classList.add('workbench-ready');
-    const loading = $('#boot-screen');
-    if (loading) window.setTimeout(() => loading.remove(), prefersReducedMotion ? 0 : 380);
-  }, remaining);
-});
+document.body.classList.add('workbench-ready');
+const loading = $('#boot-screen');
+if (loading) loading.remove();
 })();
