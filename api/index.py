@@ -1,11 +1,11 @@
-from pathlib import Path
 import sys
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from app import MAX_SOURCE_BYTES, analyze, run_program_inline, tokenize_source
 from flask import Flask, abort, jsonify, request, send_from_directory
-from app import analyze, tokenize_source, run_program_inline, MAX_SOURCE_BYTES
 
 FRONTEND = ROOT / "frontend"
 app = Flask(__name__)
@@ -34,22 +34,28 @@ def vendor(filename: str):
 # Match the local server and support browsers that request /favicon.ico automatically.
 @app.get("/favicon.svg")
 def favicon_svg():
-    return send_from_directory(FRONTEND, "favicon.svg", mimetype="image/svg+xml")
+    return send_from_directory(FRONTEND, "icons/favicon.svg", mimetype="image/svg+xml")
 
 
 @app.get("/favicon.ico")
 def favicon_ico():
-    return send_from_directory(FRONTEND, "favicon.ico", mimetype="image/vnd.microsoft.icon")
+    return send_from_directory(
+        FRONTEND, "icons/favicon.ico", mimetype="image/vnd.microsoft.icon"
+    )
 
 
 @app.get("/favicon-32x32.png")
 def favicon_png():
-    return send_from_directory(FRONTEND, "favicon-32x32.png", mimetype="image/png")
+    return send_from_directory(
+        FRONTEND, "icons/favicon-32x32.png", mimetype="image/png"
+    )
 
 
 @app.get("/apple-touch-icon.png")
 def touch_icon():
-    return send_from_directory(FRONTEND, "apple-touch-icon.png", mimetype="image/png")
+    return send_from_directory(
+        FRONTEND, "icons/apple-touch-icon.png", mimetype="image/png"
+    )
 
 
 @app.post("/api/analyze")
@@ -80,7 +86,9 @@ def api_run():
     if len(data["source"].encode("utf-8")) > MAX_SOURCE_BYTES:
         return jsonify({"message": "Choose a program smaller than 100 KB."}), 413
     inputs = data.get("inputs", [])
-    if not isinstance(inputs, list) or not all(isinstance(item, str) for item in inputs):
+    if not isinstance(inputs, list) or not all(
+        isinstance(item, str) for item in inputs
+    ):
         return jsonify({"message": "inputs must be a list of strings."}), 400
     return jsonify(run_program_inline(data["source"], inputs))
 
