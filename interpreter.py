@@ -3,7 +3,6 @@
 Run: python interpreter.py source.txt
 """
 
-# Imports and dependencies
 import sys
 from functools import wraps
 from lexer import tokenize
@@ -86,7 +85,7 @@ class Interpreter:
             return value != 0
         return value != ""
 
-    # This converts a value to a numbers for arithmetic operations
+    # Coerce values for arithmetic operations.
     def number(self, value):
         if value is None:
             return 0
@@ -100,7 +99,7 @@ class Interpreter:
         except ValueError:
             raise RuntimeError(f"Cannot convert {value!r} to a number.")
 
-    # Display the LOLCODE intepretation
+    # Format a value using LOLCODE literals.
     def display(self, value):
         if value is None:
             return "NOOB"

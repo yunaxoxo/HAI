@@ -1,4 +1,4 @@
-"""Independent lexer regressions; course references stay local and unchanged."""
+"""Regression tests for LOLCODE lexical analysis."""
 import unittest
 
 from lexer import LexicalError, tokenize, tokenize_with_locations
@@ -129,7 +129,7 @@ class LexerTests(unittest.TestCase):
         self.assertEqual(error.end_offset, len(source))
         self.assertEqual(error.end_column, error.column)
 
-    def test_visible_plus_matches_course_spec_not_addition_syntax(self):
+    def test_visible_plus_is_separator_not_arithmetic_syntax(self):
         self.assertIn(('PLUS', '+', 2), tokenize('HAI\nVISIBLE "hello" + 7\nKTHXBYE'))
         self.assertIn(('SUM_OF', 'SUM OF', 2), tokenize('HAI\nVISIBLE SUM OF 5 AN 3\nKTHXBYE'))
 

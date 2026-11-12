@@ -1,6 +1,5 @@
-/* HAI — no server-side business logic lives in this file.
- * The Python API is the source of truth for tokens, AST, diagnostics and execution.
- * Vendored CodeMirror 5 is used for an offline-capable editor; see docs/ARCHITECTURE.md.
+/* Frontend editor, inspection views, and UI state.
+ * Language analysis and execution are provided by the Python API.
  */
 (() => {
 'use strict';

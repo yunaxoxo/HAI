@@ -1,14 +1,11 @@
-# Python bytecode and tool caches
+# Python
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
-.coverage
-.coverage.*
+.coverage*
 htmlcov/
-
-# Local Python environments and build output
 .venv/
 venv/
 env/
@@ -16,34 +13,37 @@ build/
 dist/
 *.egg-info/
 
-# Local configuration and operating system files
+# JavaScript tools (optional for local development)
+node_modules/
+.npm/
+
+# Local configuration and tooling
 .env
 .env.*
 !.env.example
+.vercel/
 .DS_Store
 Thumbs.db
-
-# Course-provided references stay local (redistribution rights unknown)
-project-testcases-fixed/
-*.pdf
-
-# local review output
-playground.lol
-*.log
-
-# Editor state
 .vscode/
 .idea/
+*.log
 
-# Local packaged archives and screenshots
+# Generated and private materials
 *.zip
+/playground.lol
+*.pdf
+/previews/
 /preview-*.png
 /analysis-first.png
 /desktop-first.png
 /graph-first.png
+/project-testcases-fixed/
+/docs/MAINTENANCE.md
+/docs/PARSER_FINDINGS.md
+/docs/REPAIR_SUMMARY.md
+/docs/LEXER_API_HANDOFF.md
+/docs/COMPILER_ATLAS_FOUNDATION.md
 
-# Local Vercel project linkage and generated design previews
-.vercel/
-/previews/
-.vercel
-.env*
+# Local patch and screenshot exports
+*.patch
+*.diff
