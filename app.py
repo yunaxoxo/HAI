@@ -386,10 +386,10 @@ class Handler(BaseHTTPRequestHandler):
             "/app.js": ("app.js", "text/javascript"),
             "/vendor/codemirror.js": ("vendor/codemirror.js", "text/javascript"),
             "/vendor/codemirror.css": ("vendor/codemirror.css", "text/css"),
-            "/favicon.svg": ("favicon.svg", "image/svg+xml"),
-            "/favicon.ico": ("favicon.ico", "image/vnd.microsoft.icon"),
-            "/favicon-32x32.png": ("favicon-32x32.png", "image/png"),
-            "/apple-touch-icon.png": ("apple-touch-icon.png", "image/png"),
+            "/favicon.svg": ("icons/favicon.svg", "image/svg+xml"),
+            "/favicon.ico": ("icons/favicon.ico", "image/vnd.microsoft.icon"),
+            "/favicon-32x32.png": ("icons/favicon-32x32.png", "image/png"),
+            "/apple-touch-icon.png": ("icons/apple-touch-icon.png", "image/png"),
         }
         asset = assets.get(self.path.split("?", 1)[0])
         if asset is None:
