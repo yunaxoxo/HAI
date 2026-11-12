@@ -1,52 +1,51 @@
 # Deployment
 
-HAI runs locally using only Python's standard library. Hosted deployments use Flask via Vercel, with a **different execution-isolation model** (see [Security](#security-and-runtime-limits)).
+HAI can run locally using Python's standard library or on Vercel through the Flask adapter. The two environments have different execution safeguards.
 
 ## Local development
+
+From the repository root:
 
 ```bash
 python3 -B -m unittest discover -q
 python3 -B app.py
 ```
 
-Visit `http://127.0.0.1:8000`. A Node.js build step is not required. You can optionally validate the frontend with `node --check frontend/app.js`.
+Visit `http://127.0.0.1:8000`. No frontend build or npm install is needed. If available, `node --check frontend/app.js` provides an extra JavaScript syntax check.
 
-## Vercel (GitHub integration)
+## Vercel and GitHub
 
-1. Connect your repository to an existing Vercel project, or import it at [vercel.com/new](https://vercel.com/new).
-2. Set the **Root Directory** to the repository root. Keep the included `vercel.json`, `api/index.py`, and `requirements.txt` together.
-3. Configure the intended Production branch (normally `main`). Feature branches receive Previews; merges to the Production branch create Production deployments when Git integration is active.
-4. Open the **Preview** for your feature branch and test it before merging.
+1. Connect the GitHub repository to your existing Vercel project (or import it through [Vercel](https://vercel.com/new)).
+2. Keep the Root Directory at the repository root. The project uses `vercel.json`, `requirements.txt`, and `api/index.py`.
+3. Configure `main` (or the team's intended release branch) as the Production branch.
+4. Push changes to a feature branch and inspect the Git-backed **Preview** deployment.
+5. Merge only after testing and review. A configured Git integration should then deploy the Production branch.
 
-From a linked local folder, `vercel deploy` creates a Preview; `vercel deploy --prod` explicitly targets Production. Do not deploy manually to Production merely to test a branch.
+From a linked local directory, `vercel deploy` creates a Preview and `vercel deploy --prod` explicitly targets Production. Avoid deploying a test branch to Production.
 
-## Validate the deployed build
+## Verify a deployment
 
-In the browser's Developer Tools → Network panel, confirm these paths return **200**, correct response bodies, and correct MIME types:
+Check that the deployment uses the intended **Git commit** and that the site can:
 
-| URL | Expected Content-Type |
-| --- | --- |
-| `/favicon.ico?v=4` | `image/vnd.microsoft.icon` |
-| `/favicon.svg?v=4` | `image/svg+xml` |
-| `/favicon-32x32.png?v=4` | `image/png` |
-| `/apple-touch-icon.png?v=4` | `image/png` |
-| `/vendor/codemirror.js` | JavaScript |
-| `/vendor/codemirror.css` | CSS |
-| `/app.js` and `/style.css` | JavaScript and CSS |
+- Open **Launch editor**, load examples, tokenize, analyze, and run LOLCODE.
+- Navigate between AST nodes and source positions.
+- Submit `GIMMEH` input and use keyboard help (`?`).
+- Display a usable layout on mobile.
+- Load `/app.js`, `/style.css`, the bundled `/vendor/` assets, and `/favicon.ico`, `/favicon.svg`, `/favicon-32x32.png`, `/apple-touch-icon.png` with HTTP 200 and the correct content types.
 
-Verify **Run**, **Tokenize**, **Analyze**, AST source navigation, **Launch editor**, keyboard help (`?`), and `GIMMEH`. On mobile check Code, Explore, and Output. A hard refresh or private window may be necessary because browsers aggressively cache favicons.
+If an icon looks blank, open the asset URL directly and inspect DevTools → Network; browsers can cache favicons across normal refreshes. Verify the favicon files are tracked in Git and that Vercel is deploying the correct commit.
 
-If favicon requests return HTML or 404, the deployed branch may lack the new assets, or the Flask adapter/static routing may be out of date. Inspect the deployed Git commit and the Vercel Functions logs before changing configuration.
+## Runtime security
 
-## Security and runtime limits
-
-The local runner enforces a **five-second child-process timeout**. On Vercel, source code executes **in-process**, without an equivalent hard per-program deadline or isolation. Interpreter loop limits are not a substitute for sandboxing. For public use, evaluate resource and input limits, abuse protections, and deployment access restrictions. Keep early previews appropriately access-controlled.
+**Do not assume Vercel provides the same code-execution safety as local development.** Locally, `app.py` runs the interpreter in a subprocess with a five-second timeout. The Flask adapter executes it in-process, without an equivalent per-program deadline or sandbox. Evaluate resource limits, input limits, abuse protections, and deployment access controls before exposing public execution.
 
 ## Troubleshooting
 
-- **Preview differs from Production:** compare the Git commit hash, branch, and build source in Vercel Deployments. CLI deployments can include uncommitted local files.
-- **Blank page or missing files:** check Vercel build logs and root directory. With the included custom `builds` configuration, confirm static assets are included in the deployed Python function.
-- **404 icons:** verify the `frontend/` icon files are tracked (`git ls-files frontend`) and that the Flask routes serve image content rather than a page fallback.
-- **API failures:** check Function logs and the `/api/*` network responses.
+| Issue | Check |
+| --- | --- |
+| Preview differs from Production | Source, Git branch, commit, and environment in Vercel Deployments |
+| Missing CSS, editor, or icons | File paths, HTTP status, MIME type, and Flask/static routes |
+| API execution errors | Browser Network tab and Vercel Function logs |
+| New UI not visible | Correct deployment URL and browser cache; try a private tab |
 
-Reference: [Vercel Flask deployment documentation](https://vercel.com/docs/frameworks/backend/flask).
+See [Architecture](docs/ARCHITECTURE.md) for endpoint and runtime details.

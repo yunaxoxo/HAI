@@ -1,68 +1,55 @@
 # Architecture
 
-HAI is a single-page frontend backed by Python language-processing modules. The JavaScript editor displays results; it is **not** a second compiler.
+HAI keeps the LOLCODE implementation in Python. The browser renders the editor, compiler results, and console; it does not reimplement the lexer or interpreter.
 
-## Components
+## Processing flow
 
 ```text
-Browser: HTML + CSS + app.js + bundled CodeMirror
-  |       |        |
-  |       |        +-- POST /api/run ------> Python interpreter
-  |       +----------- POST /api/analyze --> lexer + parser + AST
-  +------------------- POST /api/tokenize -> lexer
-
-Local hosting: app.py (Python standard-library HTTP server)
-Vercel hosting: api/index.py (Flask adapter)
+LOLCODE source
+    ↓
+lexer.py           → tokens + source locations
+    ↓
+parser.py          → abstract syntax tree (AST) + node ranges
+    ↓
+interpreter.py     → output, variable state, or diagnostics
+    ↓
+app.py / api/index.py  → JSON responses to frontend/app.js
 ```
 
-- `lexer.py` produces lexer tokens and optional source locations.
-- `parser.py` consumes `(kind, lexeme, line)` token triples to build the AST.
-- `interpreter.py` executes the AST.
-- `app.py` validates requests, builds API responses, and runs programs in a timeout-bound child process locally.
-- `api/index.py` adapts the same API to Flask for Vercel. It calls the in-process runner (see runtime limitations below).
-- `frontend/app.js` manages editor state, AST presentation, console, dialogs, and responsive views.
+- `lexer.py`: recognizes tokens and their locations.
+- `parser.py`: builds AST nodes from parser-compatible `(kind, lexeme, line)` token triples.
+- `interpreter.py`: executes supported LOLCODE constructs.
+- `app.py`: local HTTP server and shared analysis/execution functions.
+- `api/index.py`: Flask endpoints for Vercel.
+- `frontend/`: CodeMirror editor, AST explorer, symbol table, console, and responsive interface.
 
-## API
+## HTTP API
 
-All three routes accept JSON objects and return JSON:
+Requests and responses use JSON. The API enforces a 100 KB source limit.
 
-| Route | Input | Result |
+| Endpoint | Request | Main response fields |
 | --- | --- | --- |
-| `POST /api/tokenize` | `{ "source": "..." }` | tokens and `token_locations` |
-| `POST /api/analyze` | `{ "source": "..." }` | tokens, serialized AST, `ast_locations`, or diagnostics |
-| `POST /api/run` | `{ "source": "...", "inputs": [] }` | output, final symbols, input request, or error |
+| `POST /api/tokenize` | `{"source": "..."}` | `ok`, `tokens`, `token_locations`, or `error` |
+| `POST /api/analyze` | `{"source": "..."}` | `ok`, `tokens`, `ast`, `ast_locations`, or `error` |
+| `POST /api/run` | `{"source": "...", "inputs": []}` | `ok`, `output`, `symbols`, `needs_input`, `prompt`, or `error` |
 
-Program source is limited to 100 KB by the HTTP API. Some API error details depend on the stage that produced them.
+Response shapes can differ on failure; check the tests before changing API fields.
 
-## Source-location contract
+## Source mapping
 
-Tokens remain compatible with the parser's `(kind, lexeme, line)` structure. The associated `token_locations` array contains aligned spans with 1-based line/column numbers and 0-based, half-open **Unicode codepoint** offsets. Example:
+Tokens preserve the representation expected by the parser. The parallel `token_locations` array stores source spans with 1-based line/column positions and 0-based, half-open Unicode-codepoint offsets. `ast_locations` maps AST JSON paths to source ranges.
 
-```json
-{
-  "line": 2, "column": 9, "end_line": 2, "end_column": 22,
-  "start_offset": 12, "end_offset": 25
-}
-```
+The frontend converts those offsets to the positions expected by CodeMirror. Selecting an AST node can highlight the corresponding source, and changed source invalidates outdated mappings. The AST graph is limited for rendering performance; the outline and JSON views allow deeper inspection.
 
-`ast_locations` is a separate map keyed by AST JSON paths, such as `$.body[0].values[0]`. These paths are valid only for the current analysis result. Frontend selection translates Python codepoint offsets to CodeMirror's JavaScript UTF-16 offsets. When the source changes, stale source maps and diagnostics are invalidated.
+## Execution and input
 
-The UI supports an expandable AST outline, a limited graph view, and raw JSON. Source-to-AST navigation selects the most specific matching node with a known span. Missing source spans are not guessed.
+- **Local:** `run_program()` starts a subprocess with a five-second timeout.
+- **Vercel:** `run_program_inline()` runs inside the Flask request process without the same hard timeout or isolation.
+- **`GIMMEH`:** the browser collects answers and reruns the program with those inputs. It is not a persistent paused interpreter.
+- **Symbols:** the panel shows the final available variable values, not a step-by-step execution trace.
 
-## Runtime and UI limitations
+See [Deployment](../DEPLOYMENT.md) for security implications and hosting verification.
 
-- **Local**: `run_program()` uses a child process with a five-second deadline.
-- **Vercel**: `run_program_inline()` does not have equivalent process isolation or a hard per-program timeout. Do not assume the serverless platform is a secure sandbox for untrusted programs.
-- **`GIMMEH`**: the frontend re-runs with collected answers; it doesn't pause/resume a live interpreter process.
-- **Symbols**: the inspector shows the available final variable snapshot, not execution history.
-- **Large ASTs**: graph view is limited for rendering performance; use Outline for full exploration.
+## Static files and dependencies
 
-## Static assets
-
-`frontend/` is the source of the workbench and local assets. Both the local handler and the Flask adapter must serve `favicon.ico`, `favicon.svg`, `favicon-32x32.png`, and `apple-touch-icon.png` with image MIME types, as well as editor CSS/JS and CodeMirror vendor files. Their URLs are absolute (`/favicon.ico`, etc.); unknown files must not silently return the homepage HTML.
-
-The included `vercel.json` routes frontend requests to the Flask adapter. Any additional assets need server route coverage and deployment verification.
-
-## Maintenance
-
-For changes to language behavior, add/adjust regression tests. For UI changes, verify keyboard navigation and phone-width layouts. Preserve the CodeMirror MIT and Lucide/Feather icon notices in their respective `frontend/` subfolders.
+`frontend/index.html`, `style.css`, `app.js`, the favicon files, and `frontend/vendor/` assets must be served by both the local server and the Flask adapter. Unknown asset paths should return 404 rather than the HTML page. CodeMirror and icon license notices must remain with the bundled files.
