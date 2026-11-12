@@ -2,7 +2,12 @@
 
 A small, source-linked language workbench for **LOLCODE**. Write and run programs, inspect lexer tokens, navigate the actual parser AST, and trace errors back to the source.
 
-The interface is designed as a source-linked compiler explorer rather than a general-purpose IDE. It opens directly to the editor, without a timed splash or decorative animation. A full-height code buffer sits beside a split inspector and console. Its deliberately neutral surfaces, single-level controls, and small visual separators let the source and compiler output carry the hierarchy. Compiler results come from the Python interpreter, not simulated frontend data.
+The interface is designed as a source-linked compiler explorer rather than a general-purpose IDE. On first entry, a restrained 1.65-second startup line gives way to a single **Launch editor** button; the already-initialized workbench opens on activation. Subsequent reloads in the same tab skip that extra click when session storage is available. Reduced-motion settings shorten the opening, with no decorative transition sequence. A full-height code buffer sits beside a split inspector and console. Its deliberately neutral surfaces, single-level controls, and small visual separators let the source and compiler output carry the hierarchy. Compiler results come from the Python interpreter, not simulated frontend data.
+
+The workbench includes a small set of bundled Lucide-style toolbar glyphs for
+Open, Save, Tokenize, Analyze and Run, along with its own HAI favicon and
+home-screen icon. All assets are served locally; no icon CDN or JS icon runtime
+is required. Icon attribution: [`frontend/icons/LICENSE.md`](frontend/icons/LICENSE.md).
 
 ## Quick start
 
@@ -74,6 +79,9 @@ frontend/index.html      Workbench structure and accessible controls
 frontend/style.css       Design tokens, layout, responsive treatments
 frontend/app.js          Code editor integration, API state, AST navigation
 frontend/vendor/         Bundled CodeMirror editor and MIT license
+frontend/favicon.svg     HAI browser-tab icon
+frontend/apple-touch-icon.png  HAI home-screen icon
+frontend/icons/LICENSE.md Lucide/Feather icon attribution
 docs/ARCHITECTURE.md    Public technical architecture
 
 test_*.py                Regression and API tests
@@ -90,3 +98,7 @@ The included **CodeMirror 5.58.3** editor is distributed under the MIT license. 
 The repository also includes `vercel.json`, `requirements.txt`, and `api/index.py` for a Python serverless deployment. Import the repository as a Vercel project with the **repository root** as its Root Directory, and leave the framework preset at Other. The bundled editor assets do not need a JavaScript build.
 
 Vercel uses an in-process interpreter adapter instead of the local child-process runner. That path does **not** enforce the same five-second local subprocess timeout; the hosting platform limits execution separately. Verify your deployed endpoint behavior and resource limits before making it publicly available. This release has been tested locally but has not been live-deployed to Vercel. See [Deployment guide](DEPLOYMENT.md) for Git and CLI instructions and verification steps.
+
+### Responsive command bar
+
+HAI uses one icon language across desktop and mobile. The main compiler commands keep text labels on every viewport; on phones the Open and Save controls use recognizable line icons with accessible labels to save space. The Examples menu stays available in the first toolbar row, while Code / Explore / Output remain separate mobile workspaces. Secondary footer actions use larger invisible tap areas rather than pill-shaped backgrounds.

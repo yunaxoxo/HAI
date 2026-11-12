@@ -5,15 +5,19 @@
 <meta content="width=device-width, initial-scale=1, viewport-fit=cover" name="viewport"/>
 <meta content="#202123" name="theme-color"/>
 <meta content="HAI — a LOLCODE interpreter with source-linked compiler inspection." name="description"/>
-<title>HAI — LOLCODE Workbench</title>
+<title>HAI. — LOLCODE Workbench</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"/>
 <link href="/vendor/codemirror.css" rel="stylesheet"/>
 <link href="/style.css" rel="stylesheet"/>
 <script>
+// Record the first moment HAI can paint its boot screen, before deferred editor scripts.
+window.__haiBootStart = performance.now();
 window.addEventListener('DOMContentLoaded', function () {
   const retry = document.getElementById('boot-retry');
   if (retry) retry.addEventListener('click', function () { window.location.reload(); });
   window.setTimeout(function () {
-    if (!document.body.classList.contains('workbench-ready')) {
+    if (!document.body.classList.contains('boot-complete')) {
       const label = document.getElementById('boot-status');
       if (label) label.textContent = 'Editor could not start';
       document.body.classList.add('boot-error');
@@ -27,20 +31,21 @@ window.addEventListener('DOMContentLoaded', function () {
 <script defer src="/app.js"></script>
 </head>
 <body>
-<div class="boot-screen" id="boot-screen" role="status" aria-label="Starting HAI workbench" aria-live="polite">
+<div class="boot-screen" id="boot-screen" role="region" aria-labelledby="boot-name" aria-describedby="boot-subtitle">
   <div class="boot-layout">
     <div class="boot-heading">
-      <div class="boot-name">HAI<span>.</span></div>
-      <div class="boot-subtitle">LOLCODE WORKBENCH</div>
+      <div class="boot-name" id="boot-name">HAI<span>.</span></div>
+      <div class="boot-subtitle" id="boot-subtitle">LOLCODE workbench</div>
     </div>
     <div class="boot-bottom">
-      <span class="boot-status" id="boot-status">Opening workbench</span>
       <div class="boot-progress" aria-hidden="true"><span></span></div>
+      <button id="launch-editor" class="boot-launch" type="button" hidden>Launch editor <span aria-hidden="true">→</span></button>
+      <span class="boot-status visually-hidden" id="boot-status" role="status" aria-live="polite">Opening workbench</span>
       <button id="boot-retry" class="boot-retry" type="button" hidden>Reload</button>
     </div>
   </div>
 </div>
-<div class="app-shell" id="app-shell">
+<div class="app-shell" id="app-shell" inert>
 <header class="global-header">
   <a aria-label="HAI workbench home" class="brand" href="/">
     <span class="brand-name">HAI<span class="brand-stop">.</span></span>
@@ -51,7 +56,7 @@ window.addEventListener('DOMContentLoaded', function () {
       <label class="visually-hidden" for="example">Sample program</label>
       <div class="select-shell sample-selector" id="sample-selector">
         <button class="sample-trigger" type="button" id="sample-trigger" aria-haspopup="menu" aria-expanded="false" aria-controls="sample-menu" aria-label="Load a sample program">
-          <span id="sample-current">Examples</span><span class="sample-chevron" aria-hidden="true"></span>
+          <span id="sample-current">Examples</span><svg class="sample-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg>
         </button>
         <div class="sample-menu" id="sample-menu" role="menu" aria-label="Sample programs" hidden></div>
         <select id="example" hidden aria-hidden="true" tabindex="-1">
@@ -65,16 +70,16 @@ window.addEventListener('DOMContentLoaded', function () {
     </div>
 
     <div class="toolbar-group file-actions">
-      <button class="btn header-quiet" id="open" title="Open a .lol file (Cmd/Ctrl+O)">Open</button>
-      <button class="btn header-quiet" id="download" title="Download the current .lol file (Cmd/Ctrl+S)">Save</button>
+      <button class="btn header-quiet" id="open" type="button" aria-label="Open source file" title="Open a .lol file (Cmd/Ctrl+O)"><svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 20H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h4.3a2 2 0 0 1 1.4.6l1.7 1.8a2 2 0 0 0 1.4.6H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2Z"/></svg><span>Open</span></button>
+      <button class="btn header-quiet" id="download" type="button" aria-label="Save source file" title="Download the current .lol file (Cmd/Ctrl+S)"><svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg><span>Save</span></button>
       <button class="btn header-quiet mobile-samples-toggle" id="mobile-samples-toggle" type="button" aria-controls="mobile-samples-panel" aria-expanded="false">Samples <span class="mobile-samples-caret" aria-hidden="true"></span></button>
       <input accept=".lol,.txt,text/plain" hidden id="file" type="file"/>
     </div>
 
     <div class="toolbar-group action-cluster">
-      <button class="btn action" id="tokenize" title="Inspect lexical tokens">Tokenize</button>
-      <button class="btn action" id="analyze" title="Generate AST and source map">Analyze</button>
-      <button class="btn run" id="run" title="Run program (Cmd/Ctrl + Enter)"><span aria-hidden="true" class="play-triangle"></span>Run</button>
+      <button class="btn action" id="tokenize" title="Inspect lexical tokens"><svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg><span>Tokenize</span></button>
+      <button class="btn action" id="analyze" title="Generate AST and source map"><svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 3v12"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="6" r="3"/><path d="M18 9a6 6 0 0 1-6 6H6"/></svg><span>Analyze</span></button>
+      <button class="btn run" id="run" title="Run program (Cmd/Ctrl + Enter)"><svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m7 4 13 8-13 8V4Z"/></svg><span>Run</span></button>
     </div>
   </div>
 </header>

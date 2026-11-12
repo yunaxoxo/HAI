@@ -1002,6 +1002,7 @@ divider.addEventListener('keydown',e=>{
 window.addEventListener('resize',()=>editor.refresh());
 window.addEventListener('beforeunload',e=>{if(state.dirty){e.preventDefault();e.returnValue='';}});
 document.addEventListener('keydown', e => {
+  if (!document.body.classList.contains('workbench-ready')) return;
   const command = e.metaKey || e.ctrlKey;
   if (e.altKey || e.isComposing) return;
 
@@ -1034,10 +1035,45 @@ document.addEventListener('keydown', e => {
   else if (e.key.toLowerCase() === 'o') { e.preventDefault(); $('#file').click(); }
 });
 
-// HAI starts immediately. The boot overlay is an error fallback, not a showpiece.
+// The initial HAI loading line is short; once ready, the welcome screen
+// offers one clear path into the editor. Subsequent reloads in the same tab
+// bypass the extra click without bypassing application initialization.
 state.revision=0;dirtyState(false);clearResults(true);renderPosition();showMobileView('code');
 setStatus('READY','');
-document.body.classList.add('workbench-ready');
 const loading = $('#boot-screen');
-if (loading) loading.remove();
+const launchEditor = $('#launch-editor');
+const appShell = $('#app-shell');
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const minimumBootMs = reducedMotion ? 180 : 1650;
+const bootStart = Number.isFinite(window.__haiBootStart) ? window.__haiBootStart : performance.now();
+const remainingBootMs = Math.max(0, minimumBootMs - (performance.now() - bootStart));
+const launchedInThisTab = (() => {
+  try { return sessionStorage.getItem('hai.editor.launched') === '1'; }
+  catch { return false; }
+})();
+let editorOpened = false;
+function enterWorkbench() {
+  if (editorOpened) return;
+  editorOpened = true;
+  try { sessionStorage.setItem('hai.editor.launched', '1'); } catch { /* optional */ }
+  appShell.inert = false;
+  document.body.classList.add('workbench-ready');
+  if (loading) {
+    loading.setAttribute('aria-hidden', 'true');
+    loading.inert = true;
+    window.setTimeout(() => loading.remove(), reducedMotion ? 0 : 190);
+  }
+  requestAnimationFrame(() => editor.refresh());
+}
+launchEditor.addEventListener('click', enterWorkbench);
+window.setTimeout(() => {
+  document.body.classList.add('boot-complete');
+  if (launchedInThisTab) {
+    enterWorkbench();
+    return;
+  }
+  launchEditor.hidden = false;
+  $('#boot-status').textContent = 'Editor ready';
+  launchEditor.focus({preventScroll:true});
+}, remainingBootMs);
 })();
