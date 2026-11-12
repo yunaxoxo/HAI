@@ -1,20 +1,24 @@
 # HAI.
 
-**A browser-based LOLCODE workbench.** Write and execute programs, inspect tokens and syntax trees, and follow compiler errors back to the source.
+**An interactive LOLCODE interpreter and language workbench.**
 
-HAI is a lightweight editor and compiler explorer—not a general-purpose IDE. It works locally without a frontend build step or an internet connection.
+HAI was developed as a course requirement for **CMSC 124 (Design and Implementation of Programming Languages)** at the **University of the Philippines Los Baños (UPLB)**.
+
+Designed to explore how programming languages work under the hood, HAI lets users write, execute, and debug LOLCODE programs while inspecting lexical tokens, an abstract syntax tree (AST), variables in a symbol table, and errors linked to their source code. It brings programming-language theory and practical implementation together in one accessible, interactive environment.
 
 ## Getting started
 
-You need **Python 3**. From the repository root:
+**Requirement:** Python 3. No frontend build step or npm installation is needed.
+
+From the project root:
 
 ```bash
 python3 -B app.py
 ```
 
-Open **http://127.0.0.1:8000** in a browser. On your first visit in a tab, choose **Launch editor** after the short welcome screen.
+Open **http://127.0.0.1:8000** in a browser. On the initial visit in a tab, choose **Launch editor**.
 
-Try this program:
+Try:
 
 ```lolcode
 HAI
@@ -22,70 +26,51 @@ VISIBLE SUM OF 5 AN 3
 KTHXBYE
 ```
 
-Select **Run** to print `8`, **Tokenize** to inspect lexical tokens, or **Analyze** to explore the syntax tree. No account, npm installation, or hosted service is required for local use.
+Select **Run** to print `8`, **Tokenize** to inspect lexical tokens, or **Analyze** to explore the AST.
 
 ## Features
 
-- **Source editor:** syntax highlighting, line numbers, editable LOLCODE source, open/download `.lol` files, and built-in examples.
-- **Compiler inspector:** tokens, searchable and expandable AST outline, graphical AST view, raw JSON, and final variable values.
-- **Source navigation:** select an AST node to highlight its source; inspect errors in the editor and Problems tab.
-- **Program execution:** Output console, preset input, and interactive `GIMMEH` prompts.
-- **Keyboard access:** `Cmd/Ctrl + Enter` to run, `Cmd/Ctrl + O` to open, `Cmd/Ctrl + S` to download, and `?` or `Cmd/Ctrl + /` to open the shortcuts reference.
-- **Responsive interface:** desktop split views and dedicated **Code / Explore / Output** views on small screens.
+- **Editor:** LOLCODE highlighting, built-in examples, and opening or downloading `.lol` files.
+- **Language inspection:** tokens, searchable AST outline, graphical and JSON views, and a symbol table.
+- **Source-linked diagnostics:** inspect syntax/runtime problems and navigate between AST nodes and code.
+- **Execution:** console output, preset input, and interactive `GIMMEH` prompts.
+- **Responsive controls:** desktop workbench and mobile **Code**, **Explore**, and **Output** views, with keyboard shortcuts accessible through **Shortcuts** or `?`.
 
-**Save** downloads a file; it does not overwrite the file you originally opened. Interactive input re-executes the program with accumulated answers; this isn't a step-through debugger.
+**Note:** Save downloads the current source; it does not overwrite an opened file. Input prompts rerun the program with collected answers rather than pausing a step-through debugger. HAI supports the LOLCODE features implemented in this project, not necessarily every dialect.
 
-## For contributors
+## Developing HAI
 
-The application uses **Python** for lexing, parsing, and execution, plus **HTML/CSS/vanilla JavaScript** and a locally bundled CodeMirror 5 editor. No React or JavaScript build system is required.
+The backend is written in **Python** (`lexer.py`, `parser.py`, `interpreter.py`, `app.py`). The frontend uses **HTML, CSS, vanilla JavaScript**, and bundled **CodeMirror 5**. Vercel hosting uses the Flask adapter in `api/index.py`.
+
+Run the tests from the repository root:
 
 ```bash
 python3 -B -m unittest discover -q
-node --check frontend/app.js  # optional: requires Node.js
 ```
 
-See [Contributing](CONTRIBUTING.md) for developer setup, [Architecture](docs/ARCHITECTURE.md) for data flow and API contracts, [Deployment](DEPLOYMENT.md) for Vercel, and the [release checklist](docs/RELEASE_CHECKLIST.md) for pre-merge verification.
+With Node.js installed, you can also run `node --check frontend/app.js`. No Node.js dependencies are needed to run the website locally.
 
-## Repository structure
+| Guide | Contents |
+| --- | --- |
+| [Contributing](CONTRIBUTING.md) | Local setup, tests, and contribution practices |
+| [Architecture](docs/ARCHITECTURE.md) | Interpreter pipeline, APIs, and source mapping |
+| [Deployment](DEPLOYMENT.md) | Local and Vercel deployment, verification, and limitations |
+| [Release checklist](docs/RELEASE_CHECKLIST.md) | Checks before merging or releasing |
+
+## Repository overview
 
 ```text
-HAI/
-├── app.py                # local HTTP server and API
-├── lexer.py              # LOLCODE tokenizer and locations
-├── parser.py             # AST construction and source ranges
-├── interpreter.py        # runtime
-├── api/index.py          # Flask adapter for Vercel
-├── frontend/             # HTML, CSS, JS, favicon and offline editor assets
-│   ├── index.html
-│   ├── style.css
-│   ├── app.js
-│   ├── favicon.svg
-│   ├── favicon.ico
-│   ├── favicon-32x32.png
-│   ├── apple-touch-icon.png
-│   ├── vendor/           # CodeMirror and its license
-│   └── icons/            # inline icon attribution
-├── docs/ARCHITECTURE.md
-├── docs/RELEASE_CHECKLIST.md
-├── test_*.py             # regression and HTTP tests
-├── source.txt            # bundled sample and test fixture
-├── requirements.txt      # hosted Flask dependency
-├── vercel.json           # Vercel routing
-├── .vercelignore
-├── .gitignore
-├── CONTRIBUTING.md
-└── DEPLOYMENT.md
+app.py                  Local HTTP server and API
+lexer.py / parser.py    Language analysis and syntax tree
+interpreter.py          LOLCODE execution
+api/index.py            Flask adapter for Vercel
+frontend/               Browser UI, favicons, and bundled editor assets
+test_*.py               Automated regression tests
+docs/                   Architecture and release documentation
 ```
 
-## Scope and security
+## Limits and acknowledgments
 
-The local runner has a five-second subprocess timeout. **The Vercel adapter executes code in-process and does not provide the same timeout or isolation.** Review execution/resource safeguards before enabling unrestricted public use; see [Deployment](DEPLOYMENT.md).
+The local runner applies a five-second subprocess timeout. **The Vercel runner executes programs in-process without equivalent isolation or a hard program timeout.** Review execution safeguards before making it publicly accessible without restrictions. See [Deployment](DEPLOYMENT.md).
 
-HAI implements the LOLCODE subset supported by this interpreter. Its syntax and behavior should be checked against the tests rather than assumed to cover all LOLCODE dialects.
-
-## Third-party acknowledgments
-
-- [CodeMirror 5](frontend/vendor/LICENSE.md) — MIT license, bundled for offline editing.
-- [Lucide and Feather icons](frontend/icons/LICENSE.md) — applicable ISC/MIT notices for inline toolbar glyphs.
-
-A project-wide license has **not** been selected in this package; the maintainers should agree on one before advertising the project as open source.
+The repository includes license notices for [CodeMirror](frontend/vendor/LICENSE.md) and [Lucide/Feather icons](frontend/icons/LICENSE.md). A project-wide software license should be agreed upon by the maintainers before inviting unrestricted reuse.
