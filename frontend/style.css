@@ -51,7 +51,12 @@ button:disabled { cursor: wait; opacity: .45; }
 .action-cluster .run { min-width: 68px; margin: 0 0 0 8px; padding: 0 14px; background: #d2d1ca; color: #202123; font-weight: 640; border-radius: 4px; }
 .action-cluster .run:hover:not(:disabled) { color: #111; background: #e3e2db; }
 .action-cluster .reset { color: #8f908e; }
-.play-triangle { width: 0; height: 0; margin-right: 8px; border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-left: 6px solid currentColor; }
+/* Lucide line icons follow the surrounding text; never become separate button badges. */
+.tool-icon { display: block; width: 15px; height: 15px; flex: 0 0 15px; color: currentColor; opacity: .9; vertical-align: middle; }
+.btn { gap: 7px; line-height: 1; }
+.btn:hover:not(:disabled) .tool-icon, .btn:focus-visible .tool-icon { opacity: 1; }
+.action-cluster .run .tool-icon { width: 15px; height: 15px; flex-basis: 15px; opacity: 1; }
+
 .example-group { gap: 0; }
 .select-shell { display: flex; align-items: center; min-width: 0; height: 31px; background: transparent; border: 0; border-radius: 0; position: relative; }
 .select-prefix { display: none; }
@@ -60,9 +65,10 @@ button:disabled { cursor: wait; opacity: .45; }
 .sample-trigger { display: flex; align-items: center; justify-content: space-between; min-width: 0; gap: 12px; height: 31px; padding: 0 8px; background: transparent; border: 0; color: #b8b9b7; font-size: 12px; text-align: left; }
 .sample-trigger:hover, .sample-trigger[aria-expanded='true'] { color: var(--text); }
 #sample-current { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.sample-chevron, .mobile-samples-caret { width: 6px; height: 6px; border-right: 1px solid #a8a9a5; border-bottom: 1px solid #a8a9a5; transform: rotate(45deg) translateY(-2px); }
-.sample-chevron { flex: 0 0 6px; }
-.sample-trigger[aria-expanded='true'] .sample-chevron { transform: rotate(225deg) translateY(-2px); }
+/* Use the same crisp outline geometry for the menu arrow as the commands. */
+.sample-chevron { width: 14px; height: 14px; flex: 0 0 14px; color: #a8aaa6; }
+.sample-trigger[aria-expanded='true'] .sample-chevron { transform: rotate(180deg); }
+.mobile-samples-caret { width: 6px; height: 6px; border-right: 1px solid #a8a9a5; border-bottom: 1px solid #a8a9a5; transform: rotate(45deg); }
 .example-group > .btn { padding: 0 10px; margin-left: 4px; font-size: 11px; }
 .sample-menu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 70; width: 220px; max-width: calc(100vw - 20px); padding: 5px; border: 1px solid #424447; border-radius: 5px; background: #242527; box-shadow: 0 10px 22px rgba(0,0,0,.28); }
 .sample-choice { display: block; width: 100%; min-height: 33px; padding: 7px 10px; border: 0; border-radius: 3px; background: transparent; text-align: left; color: #c1c2be; font-size: 12px; }
@@ -315,26 +321,115 @@ button:disabled { cursor: wait; opacity: .45; }
 .keymap-section kbd { padding: 0; border: 0; background: transparent; color: #cececb; font: 11px var(--mono); white-space: nowrap; }
 .shortcut-or { color: #8e8f8b; font-size: 10px; }
 
-/* Static startup fallback: present only until editor initialization completes. */
-.boot-screen { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 25px; background: #191a1c; }
-.boot-layout { width: min(400px,100%); }
-.boot-heading { display: flex; align-items: baseline; gap: 20px; }
-.boot-name { font: 720 52px/1 var(--mono); letter-spacing: -.09em; }
+/* Startup: the same neutral typography and surfaces as the workbench itself.
+   A short, center-aligned hold — no cards, gradients, logos, or ornamental motion. */
+.boot-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--shell);
+  opacity: 1;
+  transition: opacity 180ms ease-out;
+}
+.boot-layout {
+  width: min(320px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.boot-heading { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.boot-name {
+  color: #ededeb;
+  font: 700 clamp(43px, 9vw, 52px)/1 var(--mono);
+  letter-spacing: -.085em;
+}
 .boot-name span { color: #c8b69d; }
-.boot-subtitle { color: #a7a8a4; font: 10px var(--mono); }
-.boot-trace { display: none; }
-.boot-bottom { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 25px; }
-.boot-status { color: #aaa9a6; font: 11px var(--mono); }
-.boot-progress { width: 60px; height: 1px; background: #545653; }
-.boot-progress span { display: block; width: 36%; height: 100%; background: #d0d2cb; }
-.boot-retry { border: 0; background: transparent; color: var(--text); font: 11px var(--mono); }
-body.workbench-ready .boot-screen { display: none; }
-body.boot-error .boot-status { color: var(--error); }
+.boot-subtitle {
+  color: #979a96;
+  font: 11px/1.4 var(--sans);
+  letter-spacing: .06em;
+}
+.boot-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin-top: 29px;
+  min-height: 40px;
+  justify-content: center;
+}
+.boot-progress { width: 64px; height: 1px; background: #444745; overflow: hidden; }
+.boot-progress span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #c3c5bf;
+  transform-origin: left;
+  animation: boot-fill 1650ms linear both;
+}
+@keyframes boot-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+/* The welcome action replaces the progress line only when the editor is ready.
+   It uses the same neutral language as the workbench Run action. */
+.boot-launch {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 13px;
+  padding: 0 16px;
+  border: 1px solid #d2d1ca;
+  border-radius: 4px;
+  background: #d2d1ca;
+  color: #202123;
+  font: 610 12px/1 var(--sans);
+  white-space: nowrap;
+  transition: background-color 120ms ease-out, border-color 120ms ease-out;
+}
+.boot-launch:hover { background: #e3e2dc; border-color: #e3e2dc; }
+.boot-launch:focus-visible { outline: 1px solid #8f928d; outline-offset: 3px; }
+.boot-launch span { font-size: 16px; font-weight: 400; line-height: 1; }
+body.boot-complete .boot-progress { display: none; }
+.boot-status { color: var(--muted); font: 11px var(--mono); }
+.boot-retry {
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  padding: 3px 0;
+  background: transparent;
+  color: var(--text);
+  font: 11px var(--mono);
+  cursor: pointer;
+}
+.boot-retry:hover { color: #fff; }
+.boot-retry:focus-visible { outline: 2px solid var(--accent); outline-offset: 5px; }
+body.workbench-ready .boot-screen { opacity: 0; pointer-events: none; }
+body.boot-error .boot-progress { display: none; }
+body.boot-error .boot-status {
+  position: static;
+  width: auto;
+  height: auto;
+  padding: 0;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+  border: 0;
+  color: var(--error);
+}
+
+/* The icon system should disappear before button labels become cramped.
+   All button labels remain visible and keyboard accessible. */
+@media (max-width: 900px) {
+  .btn { gap: 6px; }
+  .tool-icon { width: 15px; height: 15px; flex-basis: 15px; }
+}
 
 /* Responsive hierarchy: retain all actions, give editor priority. */
 @media (max-width: 1120px) {
   .global-header { padding: 0 14px; gap: 16px; }
-  .toolbar-groups { gap: 10px; }
   .toolbar-groups { gap: 10px; }
   .select-shell { min-width: 0; }
   .pane-header, .ast-view-toolbar, .console-heading { padding-left: 12px; padding-right: 12px; }
@@ -346,18 +441,27 @@ body.boot-error .boot-status { color: var(--error); }
 }
 @media (max-width: 740px) {
   .app-shell { min-height: 430px; }
-  .global-header { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 7px 8px; padding: 9px 12px; }
+  /* The mobile header is purpose-built, not a squeezed desktop toolbar:
+     HAI / Examples / file controls, then three compiler actions. */
+  .global-header { display: grid; grid-template-columns: minmax(0,1fr) auto auto; align-items: center; gap: 4px 8px; padding: 7px 12px 8px; }
   .toolbar-groups { display: contents; }
   .brand { grid-column: 1; grid-row: 1; }
-  .file-actions { grid-column: 2; grid-row: 1; border: 0; padding: 0; }
-  .action-cluster { grid-column: 1 / -1; grid-row: 2; width: 100%; justify-content: space-between; padding: 0; border: 0; gap: 1px; }
-  .action-cluster .btn { flex: 1 1 auto; padding: 0 7px; }
-  .action-cluster .run { flex: 1.1 1 auto; margin: 0; }
-  .example-group { grid-column: 1 / -1; grid-row: 3; min-width: 0; width: 100%; margin-left: 0; }
-  .example-group .select-shell { min-width: 0; flex: 1; }
-  .sample-trigger { min-height: 36px; height: 36px; font-size: 12px; justify-content: flex-start; }
-  .example-group > .btn { min-height: 38px; }
-  .mobile-views { display: flex; align-items: stretch; flex: 0 0 40px; gap: 24px; padding: 0 12px; border-bottom: 1px solid var(--border); background: #202123; }
+  .example-group { grid-column: 2; grid-row: 1; min-width: 0; width: auto; margin: 0; }
+  .example-group .select-shell { min-width: 0; }
+  .sample-trigger { min-height: 44px; height: 44px; padding: 0 7px; font-size: 12px; gap: 6px; }
+  .sample-menu { right: -78px; width: min(224px,calc(100vw - 24px)); }
+  .file-actions { grid-column: 3; grid-row: 1; border: 0; padding: 0; gap: 1px; }
+  .file-actions .header-quiet { display: inline-flex; min-width: 44px; min-height: 44px; padding: 0; justify-content: center; }
+  /* Do not resurrect the old Samples toggle; Examples is always accessible. */
+  .file-actions .mobile-samples-toggle { display: none; }
+  .file-actions .header-quiet span { display: none; }
+  .file-actions .header-quiet .tool-icon { display: block; width: 16px; height: 16px; flex: 0 0 16px; }
+  .action-cluster { grid-column: 1 / -1; grid-row: 2; width: 100%; justify-content: space-between; padding: 0; border: 0; gap: 4px; }
+  .action-cluster .btn { flex: 1 1 0; min-width: 0; min-height: 44px; padding: 0 6px; font-size: 12px; gap: 6px; }
+  .action-cluster .run { flex: 1 1 0; margin: 0; }
+  .action-cluster .tool-icon { width: 15px; height: 15px; flex-basis: 15px; }
+  .action-cluster .run .tool-icon { width: 15px; height: 15px; flex-basis: 15px; }
+  .mobile-views { display: flex; align-items: stretch; flex: 0 0 44px; gap: 24px; padding: 0 12px; border-bottom: 1px solid var(--border); background: #202123; }
   .mobile-view { padding: 0 2px; border: 0; border-bottom: 1px solid transparent; background: transparent; color: #a9aaa5; font-size: 12px; }
   .mobile-view.active { border-bottom-color: #d1d1cc; color: #f0f0ec; }
   .workbench, .workbench.expanded { display: flex; flex: 1; min-height: 0; overflow: hidden; }
@@ -392,26 +496,32 @@ body.boot-error .boot-status { color: var(--error); }
   .input-caption { gap: 2px; }
   .input-field textarea { max-height: 125px; }
   .search-wrapper input, .ast-find-field input, #stdin, .prompt-controls input { font-size: 16px; }
-  .statusbar { min-height: calc(28px + env(safe-area-inset-bottom)); padding: 0 12px env(safe-area-inset-bottom); }
+  /* Text-only secondary controls have generous touch areas, without visible pills. */
+  .statusbar { min-height: calc(44px + env(safe-area-inset-bottom)); flex-basis: auto; padding: 0 12px env(safe-area-inset-bottom); }
+  .keymap-trigger { min-height: 44px; display: inline-flex; align-items: center; }
 }
 @media (max-width: 440px) {
-  .global-header { padding: 8px 10px; }
+  .global-header { padding: 6px 10px 8px; gap: 4px 5px; }
   .brand-name { font-size: 16px; }
-  .file-actions .btn, .action-cluster .btn { padding: 0 6px; font-size: 11px; }
+  .action-cluster .btn { padding: 0 4px; font-size: 11px; gap: 5px; }
   .inspector-tabs { gap: 7px; }
   .ast-view-toolbar { gap: 0 12px; }
   .ast-find-field { width: auto; }
   .ast-fold { display: none; }
   .data-table td, .data-table th { padding: 8px; }
   .statusbar { padding-inline: 10px; }
+  #status-message { display: none; }
+  .keymap-trigger { min-height: 44px; padding: 0 2px; font-size: 11px; }
+  .status-meta { gap: 11px; }
   #selected-range { display: none; }
   .node-details { padding: 12px; max-height: min(40dvh,250px); }
   .hai-dialog { padding: 17px; }
 }
 @media (max-width: 350px) {
-  .action-cluster .btn { padding: 0 4px; }
+  .action-cluster .btn { padding: 0 2px; gap: 4px; }
   .statusbar { gap: 6px; }
   .status-meta { gap: 9px; }
+  #editor-where { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; }
