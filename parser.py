@@ -244,28 +244,28 @@ class Parser:
         self.locations = locations
         self.node_spans = {}
         self.position = 0
-        #ensures proper usage for keywords like gtfo or found yr i.e
+        # Track the contexts in which control-flow statements are valid.
         self.loop_depth = 0
         self.switch_depth = 0
         self.func_depth = 0
 
-    def is_at_end(self) -> bool:#checks all tokens have been used
+    def is_at_end(self) -> bool:
         return self.position >= len(self.tokens)
 
-    def peek(self, offset: int = 0) -> Optional[tuple]:#"peeks" the upcoming tokens
+    def peek(self, offset: int = 0) -> Optional[tuple]:
         index = self.position + offset
         if index < len(self.tokens):
             return self.tokens[index]
         return None
 
-    def advance(self) -> Optional[tuple]:#consumes and moves forward
+    def advance(self) -> Optional[tuple]:
         token = self.peek()
         if token:
             self.position += 1
         return token
 
     def is_identifier_token(self, offset: int = 0) -> bool:
-        #Checks if its an identifier or not to prevent splitting i.e R in ROBOT
+        # Keep keyword fragments inside identifiers (for example, ROBOT).
         token = self.peek(offset)
         if not token:
             return False
@@ -285,7 +285,7 @@ class Parser:
             self.advance()
             return token[1]
 
-        #recombine the split identifiers
+        # Recombine tokens that belong to a single identifier.
         next_token = self.peek(1)
         if token[0] in ("R", "A") and next_token and next_token[0] == "IDENTIFIER":
             self.advance()  
@@ -294,11 +294,11 @@ class Parser:
         line = token[2]
         raise SyntaxError(f"Line {line}: Expected IDENTIFIER, found '{token[1]}' ({token[0]})")
 
-    def check(self, *expected_types: str) -> bool:#makes sure the next token matches any expected type
+    def check(self, *expected_types: str) -> bool:
         token = self.peek()
         if not token:
             return False
-        #edge case for AN
+        # Handle AN when it is part of an identifier.
         if "AN" in expected_types:
             next_token = self.peek(1)
             if token[0] == "A" and next_token and next_token[0] == "IDENTIFIER" and next_token[1] == "N":
@@ -318,7 +318,7 @@ class Parser:
         return None
 
     def consume(self, expected_type: str, message: Optional[str] = None) -> tuple:
-       #if it doesnt match, return a syntax error
+       # Reject a token when it does not match the expected kind.
         if expected_type == "AN":
             token = self.peek()
             next_token = self.peek(1)
@@ -340,7 +340,7 @@ class Parser:
         raise SyntaxError(msg)
 
     def skip_newlines(self) -> int:
-        #ignore back to back newlines
+        # Skip consecutive newlines.
         count = 0
         while self.check("NEWLINE", "COMMA"):
             self.advance()
@@ -348,7 +348,7 @@ class Parser:
         return count
 
     def can_start_value(self) -> bool:
-        #if the next token can be a value
+        # Check whether the next token can begin a value.
         token = self.peek()
         if not token:
             return False
@@ -366,7 +366,7 @@ class Parser:
             return True
         return False
 
-    #all the grammar methods based on the milestone
+    # Grammar productions and statement parsing.
     @tracks_source_span
     def parse(self) -> Program:
         return self.parse_program()
@@ -375,7 +375,7 @@ class Parser:
     @tracks_source_span
     def parse_program(self) -> Program:
         self.skip_newlines()
-        #get the top level functions before HAI or defined after KTHXBYE
+        # Functions may appear before HAI or after KTHXBYE.
         pre_funcs = []
         while self.check("HOW_IZ_I"):
             pre_funcs.append(self.parse_function_definition())

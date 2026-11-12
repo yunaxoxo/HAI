@@ -92,8 +92,8 @@ TOKEN_SPECS = [
     # --- Literals & Types ---
     ("NUMBAR",        r"-?[0-9]+\.[0-9]+"),
     ("NUMBR",         r"-?[0-9]+"),
-    # Escapes are optional in the course PDF. Preserve literal text, including
-    # ordinary colons; quote decoding/interpolation belongs to later stages.
+    # Preserve literal text, including ordinary colons; escape decoding
+    # and interpolation belong to later stages.
     ("YARN",          r'"[^"\r\n]*"'),
     ("TROOF",         r"\b(WIN|FAIL)\b"),
     ("TYPE",          r"\b(NOOB|TROOF|NUMBR|NUMBAR|YARN|TYPE)\b"),
