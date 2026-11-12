@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="HAI">
+  <title>HAI</title>
+  <rect width="64" height="64" rx="13" fill="#15151B"/>
+  <path d="M13 17h8v11h12V17h8v28h-8V35H21v10h-8Z" fill="#F2F0F5"/>
+  <rect x="44" y="39" width="12" height="6" rx="3" fill="#AA86E8"/>
+</svg>

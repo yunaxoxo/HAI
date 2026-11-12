@@ -1,237 +1,767 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1, viewport-fit=cover" name="viewport"/>
-<meta content="#202123" name="theme-color"/>
-<meta content="HAI — a LOLCODE interpreter with source-linked compiler inspection." name="description"/>
-<title>HAI. — LOLCODE Workbench</title>
-<link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
-<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"/>
-<link href="/vendor/codemirror.css" rel="stylesheet"/>
-<link href="/style.css" rel="stylesheet"/>
-<script>
-// Record the first moment HAI can paint its boot screen, before deferred editor scripts.
-window.__haiBootStart = performance.now();
-window.addEventListener('DOMContentLoaded', function () {
-  const retry = document.getElementById('boot-retry');
-  if (retry) retry.addEventListener('click', function () { window.location.reload(); });
-  window.setTimeout(function () {
-    if (!document.body.classList.contains('boot-complete')) {
-      const label = document.getElementById('boot-status');
-      if (label) label.textContent = 'Editor could not start';
-      document.body.classList.add('boot-error');
-      const retry = document.getElementById('boot-retry');
-      if (retry) retry.hidden = false;
-    }
-  }, 9000);
-});
-</script>
-<script defer src="/vendor/codemirror.js"></script>
-<script defer src="/app.js"></script>
-</head>
-<body>
-<div class="boot-screen" id="boot-screen" role="region" aria-labelledby="boot-name" aria-describedby="boot-subtitle">
-  <div class="boot-layout">
-    <div class="boot-heading">
-      <div class="boot-name" id="boot-name">HAI<span>.</span></div>
-      <div class="boot-subtitle" id="boot-subtitle">LOLCODE workbench</div>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+      name="viewport"
+    />
+    <meta content="#202123" name="theme-color" />
+    <meta
+      content="HAI — a LOLCODE interpreter with source-linked compiler inspection."
+      name="description"
+    />
+    <title>HAI. — LOLCODE Workbench</title>
+    <link rel="icon" href="/favicon.ico?v=4" sizes="any" />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/favicon-32x32.png?v=4"
+    />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=4" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png?v=4"
+    />
+    <link href="/vendor/codemirror.css" rel="stylesheet" />
+    <link href="/style.css" rel="stylesheet" />
+    <script>
+      // Record the first moment HAI can paint its boot screen, before deferred editor scripts.
+      window.__haiBootStart = performance.now();
+      window.addEventListener("DOMContentLoaded", function () {
+        const retry = document.getElementById("boot-retry");
+        if (retry)
+          retry.addEventListener("click", function () {
+            window.location.reload();
+          });
+        window.setTimeout(function () {
+          if (!document.body.classList.contains("boot-complete")) {
+            const label = document.getElementById("boot-status");
+            if (label) label.textContent = "Editor could not start";
+            document.body.classList.add("boot-error");
+            const retry = document.getElementById("boot-retry");
+            if (retry) retry.hidden = false;
+          }
+        }, 9000);
+      });
+    </script>
+    <script defer src="/vendor/codemirror.js"></script>
+    <script defer src="/app.js"></script>
+  </head>
+  <body>
+    <div
+      class="boot-screen"
+      id="boot-screen"
+      role="region"
+      aria-labelledby="boot-name"
+      aria-describedby="boot-subtitle"
+    >
+      <div class="boot-layout">
+        <div class="boot-heading">
+          <div class="boot-name" id="boot-name">HAI<span>.</span></div>
+          <div class="boot-subtitle" id="boot-subtitle">LOLCODE workbench</div>
+        </div>
+        <div class="boot-bottom">
+          <div class="boot-progress" aria-hidden="true"><span></span></div>
+          <button id="launch-editor" class="boot-launch" type="button" hidden>
+            Launch editor <span aria-hidden="true">→</span>
+          </button>
+          <span
+            class="boot-status visually-hidden"
+            id="boot-status"
+            role="status"
+            aria-live="polite"
+            >Opening workbench</span
+          >
+          <button id="boot-retry" class="boot-retry" type="button" hidden>
+            Reload
+          </button>
+        </div>
+      </div>
     </div>
-    <div class="boot-bottom">
-      <div class="boot-progress" aria-hidden="true"><span></span></div>
-      <button id="launch-editor" class="boot-launch" type="button" hidden>Launch editor <span aria-hidden="true">→</span></button>
-      <span class="boot-status visually-hidden" id="boot-status" role="status" aria-live="polite">Opening workbench</span>
-      <button id="boot-retry" class="boot-retry" type="button" hidden>Reload</button>
-    </div>
-  </div>
-</div>
-<div class="app-shell" id="app-shell" inert>
-<header class="global-header">
-  <a aria-label="HAI workbench home" class="brand" href="/">
-    <span class="brand-name">HAI<span class="brand-stop">.</span></span>
-  </a>
+    <div class="app-shell" id="app-shell" inert>
+      <header class="global-header">
+        <a aria-label="HAI workbench home" class="brand" href="/">
+          <span class="brand-name">HAI<span class="brand-stop">.</span></span>
+        </a>
 
-  <div class="toolbar-groups">
-    <div class="toolbar-group header-actions example-group" id="mobile-samples-panel">
-      <label class="visually-hidden" for="example">Sample program</label>
-      <div class="select-shell sample-selector" id="sample-selector">
-        <button class="sample-trigger" type="button" id="sample-trigger" aria-haspopup="menu" aria-expanded="false" aria-controls="sample-menu" aria-label="Load a sample program">
-          <span id="sample-current">Examples</span><svg class="sample-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg>
+        <div class="toolbar-groups">
+          <div
+            class="toolbar-group header-actions example-group"
+            id="mobile-samples-panel"
+          >
+            <label class="visually-hidden" for="example">Sample program</label>
+            <div class="select-shell sample-selector" id="sample-selector">
+              <button
+                class="sample-trigger"
+                type="button"
+                id="sample-trigger"
+                aria-haspopup="menu"
+                aria-expanded="false"
+                aria-controls="sample-menu"
+                aria-label="Load a sample program"
+              >
+                <span id="sample-current">Examples</span
+                ><svg
+                  class="sample-chevron"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </button>
+              <div
+                class="sample-menu"
+                id="sample-menu"
+                role="menu"
+                aria-label="Sample programs"
+                hidden
+              ></div>
+              <select id="example" hidden aria-hidden="true" tabindex="-1">
+                <option value="hello">Hello, world</option>
+                <option value="math">Variables &amp; math</option>
+                <option value="conditional">Conditional</option>
+                <option value="input">Input (GIMMEH)</option>
+                <option value="nested">Nested expressions</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="toolbar-group file-actions">
+            <button
+              class="btn header-quiet"
+              id="open"
+              type="button"
+              aria-label="Open source file"
+              title="Open a .lol file (Cmd/Ctrl+O)"
+            >
+              <svg
+                class="tool-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.85"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path
+                  d="M20 20H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h4.3a2 2 0 0 1 1.4.6l1.7 1.8a2 2 0 0 0 1.4.6H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2Z"
+                /></svg
+              ><span>Open</span>
+            </button>
+            <button
+              class="btn header-quiet"
+              id="download"
+              type="button"
+              aria-label="Save source file"
+              title="Download the current .lol file (Cmd/Ctrl+S)"
+            >
+              <svg
+                class="tool-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.85"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path
+                  d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"
+                />
+                <path d="M17 21v-8H7v8" />
+                <path d="M7 3v5h8" /></svg
+              ><span>Save</span>
+            </button>
+            <button
+              class="btn header-quiet mobile-samples-toggle"
+              id="mobile-samples-toggle"
+              type="button"
+              aria-controls="mobile-samples-panel"
+              aria-expanded="false"
+            >
+              Samples
+              <span class="mobile-samples-caret" aria-hidden="true"></span>
+            </button>
+            <input accept=".lol,.txt,text/plain" hidden id="file" type="file" />
+          </div>
+
+          <div class="toolbar-group action-cluster">
+            <button
+              class="btn action"
+              id="tokenize"
+              title="Inspect lexical tokens"
+            >
+              <svg
+                class="tool-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.85"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path d="M8 6h13M8 12h13M8 18h13" />
+                <path d="M3 6h.01M3 12h.01M3 18h.01" /></svg
+              ><span>Tokenize</span>
+            </button>
+            <button
+              class="btn action"
+              id="analyze"
+              title="Generate AST and source map"
+            >
+              <svg
+                class="tool-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.85"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path d="M6 3v12" />
+                <circle cx="6" cy="18" r="3" />
+                <circle cx="18" cy="6" r="3" />
+                <path d="M18 9a6 6 0 0 1-6 6H6" /></svg
+              ><span>Analyze</span>
+            </button>
+            <button
+              class="btn run"
+              id="run"
+              title="Run program (Cmd/Ctrl + Enter)"
+            >
+              <svg
+                class="tool-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.85"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path d="m7 4 13 8-13 8V4Z" /></svg
+              ><span>Run</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div class="workspace-column">
+        <nav aria-label="Mobile workspace views" class="mobile-views">
+          <button
+            aria-pressed="true"
+            class="mobile-view active"
+            id="mobile-code"
+            type="button"
+          >
+            Code
+          </button>
+          <button
+            aria-pressed="false"
+            class="mobile-view"
+            id="mobile-inspect"
+            type="button"
+          >
+            Explore
+          </button>
+          <button
+            aria-pressed="false"
+            class="mobile-view"
+            id="mobile-console"
+            type="button"
+          >
+            Output
+          </button>
+        </nav>
+
+        <main class="workbench" id="workbench" style="--source-share: 64%">
+          <section
+            aria-label="LOLCODE source editor"
+            class="source-pane"
+            id="source-pane"
+          >
+            <div class="pane-header source-header">
+              <div aria-label="Active source file" class="document-status">
+                <span class="document-name" id="filename">playground.lol</span>
+                <span
+                  class="dirty-indicator"
+                  hidden
+                  id="dirty-indicator"
+                  title="Unsaved changes"
+                  >●</span
+                >
+                <span class="analysis-stamp" id="analysis-stamp"
+                  >Not analyzed</span
+                >
+              </div>
+            </div>
+            <div class="editor-mount" id="editor-mount">
+              <textarea
+                aria-label="LOLCODE source code"
+                autocapitalize="off"
+                autocomplete="off"
+                id="source"
+                spellcheck="false"
+              ></textarea>
+            </div>
+          </section>
+
+          <div
+            aria-label="Resize editor and inspector"
+            aria-orientation="vertical"
+            aria-valuemax="70"
+            aria-valuemin="30"
+            aria-valuenow="64"
+            class="pane-resizer"
+            id="pane-resizer"
+            role="separator"
+            tabindex="0"
+            title="Drag to resize · Arrow keys adjust"
+          ></div>
+
+          <section
+            aria-label="Compiler inspector"
+            class="inspector-pane"
+            id="inspector-pane"
+          >
+            <div class="pane-header inspector-header">
+              <div
+                aria-label="Compiler views"
+                class="inspector-tabs"
+                role="tablist"
+              >
+                <button
+                  aria-controls="ast-panel"
+                  aria-selected="true"
+                  class="inspector-tab active"
+                  data-inspector="ast"
+                  id="ast-tab"
+                  role="tab"
+                  tabindex="0"
+                >
+                  AST <span class="tab-counter" id="ast-count" hidden></span>
+                </button>
+                <button
+                  aria-controls="tokens-panel"
+                  aria-selected="false"
+                  class="inspector-tab"
+                  data-inspector="tokens"
+                  id="tokens-tab"
+                  role="tab"
+                  tabindex="-1"
+                >
+                  Tokens
+                  <span class="tab-counter" id="token-count" hidden></span>
+                </button>
+                <button
+                  aria-controls="symbols-panel"
+                  aria-selected="false"
+                  class="inspector-tab"
+                  data-inspector="symbols"
+                  id="symbols-tab"
+                  role="tab"
+                  tabindex="-1"
+                >
+                  Symbols
+                  <span class="tab-counter" id="symbol-count" hidden></span>
+                </button>
+              </div>
+              <span class="header-spacer"></span>
+              <button
+                aria-pressed="false"
+                class="text-action"
+                id="explore"
+                title="Give the inspector more space"
+              >
+                Expand
+              </button>
+            </div>
+
+            <div
+              aria-labelledby="ast-tab"
+              class="inspector-content"
+              id="ast-panel"
+              role="tabpanel"
+            >
+              <div
+                aria-label="AST display mode"
+                class="ast-view-toolbar"
+                role="group"
+              >
+                <button
+                  aria-pressed="true"
+                  class="mode-btn active"
+                  data-mode="outline"
+                >
+                  Outline
+                </button>
+                <button aria-pressed="false" class="mode-btn" data-mode="graph">
+                  Graph
+                </button>
+                <button aria-pressed="false" class="mode-btn" data-mode="raw">
+                  JSON
+                </button>
+                <span class="header-spacer"></span>
+                <span class="mode-hint" id="tree-hint"></span>
+                <div class="outline-tools" id="outline-tools" hidden>
+                  <label class="ast-find-field">
+                    <span class="visually-hidden"
+                      >Find AST node by type, name, or value</span
+                    >
+                    <input
+                      id="ast-find"
+                      type="search"
+                      autocomplete="off"
+                      placeholder="Find in tree"
+                      aria-keyshortcuts="Enter"
+                    />
+                    <span
+                      class="ast-find-count"
+                      id="ast-find-count"
+                      aria-live="polite"
+                    ></span>
+                  </label>
+                  <button
+                    id="ast-fold"
+                    type="button"
+                    class="ast-fold"
+                    title="Collapse AST branches"
+                  >
+                    Collapse
+                  </button>
+                </div>
+                <div class="graph-controls" hidden id="graph-controls">
+                  <button
+                    aria-label="Zoom graph out"
+                    id="zoom-out"
+                    title="Zoom out"
+                    type="button"
+                  >
+                    −
+                  </button>
+                  <button
+                    id="zoom-fit"
+                    title="Fit the whole tree"
+                    type="button"
+                  >
+                    Fit
+                  </button>
+                  <button
+                    aria-label="Zoom graph in"
+                    id="zoom-in"
+                    title="Zoom in"
+                    type="button"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+              <div class="ast-surface" id="ast-surface">
+                <div class="empty-state">
+                  Analyze the program to explore its structure.
+                </div>
+              </div>
+              <div class="node-details" hidden id="node-details"></div>
+            </div>
+
+            <div
+              aria-labelledby="tokens-tab"
+              class="inspector-content"
+              hidden
+              id="tokens-panel"
+              role="tabpanel"
+            >
+              <div class="data-toolbar filter-toolbar">
+                <label class="search-wrapper"
+                  ><span class="visually-hidden">Filter tokens</span
+                  ><input
+                    autocomplete="off"
+                    id="token-filter"
+                    placeholder="Filter tokens by text or type"
+                    type="search"
+                /></label>
+              </div>
+              <div class="data-scroll" id="token-surface"></div>
+            </div>
+
+            <div
+              aria-labelledby="symbols-tab"
+              class="inspector-content"
+              hidden
+              id="symbols-panel"
+              role="tabpanel"
+            >
+              <div class="data-toolbar">
+                <span class="dim-text" id="symbol-caption"
+                  >Final values after execution</span
+                >
+              </div>
+              <div class="data-scroll" id="symbol-surface"></div>
+            </div>
+          </section>
+
+          <section
+            aria-label="Execution output and diagnostics"
+            class="console-pane"
+            id="console-pane"
+          >
+            <div class="console-heading">
+              <div
+                aria-label="Execution views"
+                class="console-tabs"
+                role="tablist"
+              >
+                <button
+                  aria-controls="console-output"
+                  aria-selected="true"
+                  class="console-tab active"
+                  data-console="output"
+                  id="console-output-tab"
+                  role="tab"
+                  tabindex="0"
+                >
+                  Output
+                </button>
+                <button
+                  aria-controls="console-problems"
+                  aria-selected="false"
+                  class="console-tab"
+                  data-console="problems"
+                  id="console-problems-tab"
+                  role="tab"
+                  tabindex="-1"
+                >
+                  Problems <span id="problem-count">0</span>
+                </button>
+              </div>
+              <span class="header-spacer"></span>
+              <span
+                aria-live="polite"
+                class="run-duration"
+                id="run-duration"
+              ></span>
+              <button
+                aria-controls="preset-input-wrap"
+                aria-expanded="false"
+                class="text-action console-input-toggle"
+                id="toggle-input"
+                title="Show or hide preset input values"
+              >
+                Preset input
+                <span aria-hidden="true" class="toggle-caret"></span>
+              </button>
+            </div>
+            <div class="preset-input-wrap" hidden id="preset-input-wrap">
+              <div class="input-caption">
+                <label for="stdin">Program input</label
+                ><span>One value per line, read by GIMMEH.</span>
+              </div>
+              <div class="input-field">
+                <textarea
+                  id="stdin"
+                  placeholder="Input values (optional)"
+                  rows="3"
+                  spellcheck="false"
+                ></textarea
+                ><button
+                  id="clear-input"
+                  class="input-clear"
+                  type="button"
+                  title="Clear preset input values"
+                >
+                  Clear input
+                </button>
+              </div>
+            </div>
+            <div
+              aria-labelledby="console-output-tab"
+              class="console-content"
+              id="console-output"
+              role="tabpanel"
+            >
+              <div class="console-empty">
+                Output appears after running a program.
+              </div>
+            </div>
+            <div
+              aria-labelledby="console-problems-tab"
+              class="console-content"
+              hidden
+              id="console-problems"
+              role="tabpanel"
+            >
+              <div class="console-empty">No diagnostics.</div>
+            </div>
+          </section>
+        </main>
+      </div>
+
+      <footer class="statusbar">
+        <div class="status-main" role="status" aria-live="polite">
+          <span class="status-indicator" id="status-indicator"></span>
+          <strong id="status-label">READY</strong>
+          <span id="status-message"></span>
+        </div>
+        <div class="status-meta">
+          <span id="selected-range" hidden></span>
+          <span id="editor-where">Ln 1 · Col 1</span>
+          <button
+            class="keymap-trigger"
+            id="reset"
+            type="button"
+            title="Clear compiler results without changing the source"
+          >
+            Clear results
+          </button>
+          <button
+            class="keymap-trigger"
+            id="show-keymaps"
+            type="button"
+            aria-haspopup="dialog"
+            aria-controls="keymaps-dialog"
+            title="Show keyboard shortcuts (? or Cmd/Ctrl + /)"
+            aria-keyshortcuts="Shift+Slash"
+          >
+            Shortcuts
+          </button>
+        </div>
+      </footer>
+    </div>
+
+    <!-- Application-owned dialogs; native operating-system file pickers and download prompts remain browser-controlled. -->
+    <dialog
+      class="hai-dialog"
+      id="workbench-dialog"
+      aria-labelledby="dialog-title"
+      aria-describedby="dialog-copy"
+    >
+      <form id="dialog-form" method="dialog">
+        <div class="dialog-topline">
+          <span class="dialog-context" id="dialog-context">HAI</span>
+          <button
+            type="button"
+            class="dialog-close"
+            id="dialog-close"
+            aria-label="Close dialog"
+          >
+            ×
+          </button>
+        </div>
+        <h2 id="dialog-title"></h2>
+        <p id="dialog-copy"></p>
+        <label
+          class="dialog-file-field"
+          id="dialog-file-field"
+          for="dialog-filename"
+          hidden
+        >
+          Filename
+          <input
+            id="dialog-filename"
+            type="text"
+            autocomplete="off"
+            spellcheck="false"
+            maxlength="90"
+          />
+        </label>
+        <div class="dialog-actions">
+          <button type="button" class="dialog-secondary" id="dialog-cancel">
+            Cancel
+          </button>
+          <button type="submit" class="dialog-primary" id="dialog-confirm">
+            Continue
+          </button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog
+      class="hai-dialog keymaps-dialog"
+      id="keymaps-dialog"
+      aria-labelledby="keymaps-title"
+    >
+      <div class="dialog-topline">
+        <span class="dialog-context">HAI</span>
+        <button
+          class="dialog-close"
+          id="keymaps-close"
+          type="button"
+          aria-label="Close shortcuts"
+        >
+          ×
         </button>
-        <div class="sample-menu" id="sample-menu" role="menu" aria-label="Sample programs" hidden></div>
-        <select id="example" hidden aria-hidden="true" tabindex="-1">
-          <option value="hello">Hello, world</option>
-          <option value="math">Variables &amp; math</option>
-          <option value="conditional">Conditional</option>
-          <option value="input">Input (GIMMEH)</option>
-          <option value="nested">Nested expressions</option>
-        </select>
       </div>
-    </div>
-
-    <div class="toolbar-group file-actions">
-      <button class="btn header-quiet" id="open" type="button" aria-label="Open source file" title="Open a .lol file (Cmd/Ctrl+O)"><svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 20H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h4.3a2 2 0 0 1 1.4.6l1.7 1.8a2 2 0 0 0 1.4.6H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2Z"/></svg><span>Open</span></button>
-      <button class="btn header-quiet" id="download" type="button" aria-label="Save source file" title="Download the current .lol file (Cmd/Ctrl+S)"><svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg><span>Save</span></button>
-      <button class="btn header-quiet mobile-samples-toggle" id="mobile-samples-toggle" type="button" aria-controls="mobile-samples-panel" aria-expanded="false">Samples <span class="mobile-samples-caret" aria-hidden="true"></span></button>
-      <input accept=".lol,.txt,text/plain" hidden id="file" type="file"/>
-    </div>
-
-    <div class="toolbar-group action-cluster">
-      <button class="btn action" id="tokenize" title="Inspect lexical tokens"><svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg><span>Tokenize</span></button>
-      <button class="btn action" id="analyze" title="Generate AST and source map"><svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 3v12"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="6" r="3"/><path d="M18 9a6 6 0 0 1-6 6H6"/></svg><span>Analyze</span></button>
-      <button class="btn run" id="run" title="Run program (Cmd/Ctrl + Enter)"><svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m7 4 13 8-13 8V4Z"/></svg><span>Run</span></button>
-    </div>
-  </div>
-</header>
-
-<div class="workspace-column">
-  <nav aria-label="Mobile workspace views" class="mobile-views">
-    <button aria-pressed="true" class="mobile-view active" id="mobile-code" type="button">Code</button>
-    <button aria-pressed="false" class="mobile-view" id="mobile-inspect" type="button">Explore</button>
-    <button aria-pressed="false" class="mobile-view" id="mobile-console" type="button">Output</button>
-  </nav>
-
-  <main class="workbench" id="workbench" style="--source-share:64%">
-    <section aria-label="LOLCODE source editor" class="source-pane" id="source-pane">
-      <div class="pane-header source-header">
-        <div aria-label="Active source file" class="document-status">
-          <span class="document-name" id="filename">playground.lol</span>
-          <span class="dirty-indicator" hidden id="dirty-indicator" title="Unsaved changes">●</span>
-          <span class="analysis-stamp" id="analysis-stamp">Not analyzed</span>
-        </div>
-      </div>
-      <div class="editor-mount" id="editor-mount"><textarea aria-label="LOLCODE source code" autocapitalize="off" autocomplete="off" id="source" spellcheck="false"></textarea></div>
-    </section>
-
-    <div aria-label="Resize editor and inspector" aria-orientation="vertical" aria-valuemax="70" aria-valuemin="30" aria-valuenow="64" class="pane-resizer" id="pane-resizer" role="separator" tabindex="0" title="Drag to resize · Arrow keys adjust"></div>
-
-    <section aria-label="Compiler inspector" class="inspector-pane" id="inspector-pane">
-      <div class="pane-header inspector-header">
-        <div aria-label="Compiler views" class="inspector-tabs" role="tablist">
-        <button aria-controls="ast-panel" aria-selected="true" class="inspector-tab active" data-inspector="ast" id="ast-tab" role="tab" tabindex="0">AST <span class="tab-counter" id="ast-count" hidden></span></button>
-        <button aria-controls="tokens-panel" aria-selected="false" class="inspector-tab" data-inspector="tokens" id="tokens-tab" role="tab" tabindex="-1">Tokens <span class="tab-counter" id="token-count" hidden></span></button>
-        <button aria-controls="symbols-panel" aria-selected="false" class="inspector-tab" data-inspector="symbols" id="symbols-tab" role="tab" tabindex="-1">Symbols <span class="tab-counter" id="symbol-count" hidden></span></button>
-        </div>
-        <span class="header-spacer"></span>
-        <button aria-pressed="false" class="text-action" id="explore" title="Give the inspector more space">Expand</button>
-      </div>
-
-      <div aria-labelledby="ast-tab" class="inspector-content" id="ast-panel" role="tabpanel">
-        <div aria-label="AST display mode" class="ast-view-toolbar" role="group">
-          <button aria-pressed="true" class="mode-btn active" data-mode="outline">Outline</button>
-          <button aria-pressed="false" class="mode-btn" data-mode="graph">Graph</button>
-          <button aria-pressed="false" class="mode-btn" data-mode="raw">JSON</button>
-          <span class="header-spacer"></span>
-          <span class="mode-hint" id="tree-hint"></span>
-          <div class="outline-tools" id="outline-tools" hidden>
-            <label class="ast-find-field">
-              <span class="visually-hidden">Find AST node by type, name, or value</span>
-              <input id="ast-find" type="search" autocomplete="off" placeholder="Find in tree" aria-keyshortcuts="Enter"/>
-              <span class="ast-find-count" id="ast-find-count" aria-live="polite"></span>
-            </label>
-            <button id="ast-fold" type="button" class="ast-fold" title="Collapse AST branches">Collapse</button>
+      <h2 id="keymaps-title">Keyboard shortcuts</h2>
+      <p>Use <kbd>?</kbd> to open this guide. Press Escape to close it.</p>
+      <div class="keymap-section">
+        <h3>File &amp; execution</h3>
+        <dl>
+          <div>
+            <dt>Run program</dt>
+            <dd><kbd>⌘ / Ctrl + Enter</kbd></dd>
           </div>
-          <div class="graph-controls" hidden id="graph-controls">
-            <button aria-label="Zoom graph out" id="zoom-out" title="Zoom out" type="button">−</button>
-            <button id="zoom-fit" title="Fit the whole tree" type="button">Fit</button>
-            <button aria-label="Zoom graph in" id="zoom-in" title="Zoom in" type="button">+</button>
+          <div>
+            <dt>Download source</dt>
+            <dd><kbd>⌘ / Ctrl + S</kbd></dd>
           </div>
-        </div>
-        <div class="ast-surface" id="ast-surface"><div class="empty-state">Analyze the program to explore its structure.</div></div>
-        <div class="node-details" hidden id="node-details"></div>
+          <div>
+            <dt>Open source file</dt>
+            <dd><kbd>⌘ / Ctrl + O</kbd></dd>
+          </div>
+          <div>
+            <dt>Show shortcuts</dt>
+            <dd>
+              <kbd>?</kbd><span class="shortcut-or">or</span
+              ><kbd>⌘ / Ctrl + /</kbd>
+            </dd>
+          </div>
+        </dl>
+        <h3>Editing &amp; inspection</h3>
+        <dl>
+          <div>
+            <dt>Indent selection</dt>
+            <dd><kbd>Tab</kbd></dd>
+          </div>
+          <div>
+            <dt>Outdent selection</dt>
+            <dd><kbd>Shift + Tab</kbd></dd>
+          </div>
+          <div>
+            <dt>Leave code editor</dt>
+            <dd><kbd>Esc</kbd></dd>
+          </div>
+          <div>
+            <dt>Navigate tabs</dt>
+            <dd><kbd>←</kbd><kbd>→</kbd></dd>
+          </div>
+          <div>
+            <dt>Next / previous AST match</dt>
+            <dd><kbd>Enter / Shift + Enter</kbd></dd>
+          </div>
+        </dl>
       </div>
-
-      <div aria-labelledby="tokens-tab" class="inspector-content" hidden id="tokens-panel" role="tabpanel">
-        <div class="data-toolbar filter-toolbar"><label class="search-wrapper"><span class="visually-hidden">Filter tokens</span><input autocomplete="off" id="token-filter" placeholder="Filter tokens by text or type" type="search"/></label></div>
-        <div class="data-scroll" id="token-surface"></div>
+      <div class="dialog-actions">
+        <button type="button" class="dialog-secondary" id="keymaps-done">
+          Close
+        </button>
       </div>
-
-      <div aria-labelledby="symbols-tab" class="inspector-content" hidden id="symbols-panel" role="tabpanel">
-        <div class="data-toolbar"><span class="dim-text" id="symbol-caption">Final values after execution</span></div>
-        <div class="data-scroll" id="symbol-surface"></div>
-      </div>
-    </section>
-
-    <section aria-label="Execution output and diagnostics" class="console-pane" id="console-pane">
-      <div class="console-heading">
-        <div aria-label="Execution views" class="console-tabs" role="tablist">
-          <button aria-controls="console-output" aria-selected="true" class="console-tab active" data-console="output" id="console-output-tab" role="tab" tabindex="0">Output</button>
-          <button aria-controls="console-problems" aria-selected="false" class="console-tab" data-console="problems" id="console-problems-tab" role="tab" tabindex="-1">Problems <span id="problem-count">0</span></button>
-        </div>
-        <span class="header-spacer"></span>
-        <span aria-live="polite" class="run-duration" id="run-duration"></span>
-        <button aria-controls="preset-input-wrap" aria-expanded="false" class="text-action console-input-toggle" id="toggle-input" title="Show or hide preset input values">Preset input <span aria-hidden="true" class="toggle-caret"></span></button>
-      </div>
-      <div class="preset-input-wrap" hidden id="preset-input-wrap">
-        <div class="input-caption"><label for="stdin">Program input</label><span>One value per line, read by GIMMEH.</span></div>
-        <div class="input-field"><textarea id="stdin" placeholder="Input values (optional)" rows="3" spellcheck="false"></textarea><button id="clear-input" class="input-clear" type="button" title="Clear preset input values">Clear input</button></div>
-      </div>
-      <div aria-labelledby="console-output-tab" class="console-content" id="console-output" role="tabpanel"><div class="console-empty">Output appears after running a program.</div></div>
-      <div aria-labelledby="console-problems-tab" class="console-content" hidden id="console-problems" role="tabpanel"><div class="console-empty">No diagnostics.</div></div>
-    </section>
-  </main>
-</div>
-
-<footer class="statusbar">
-  <div class="status-main" role="status" aria-live="polite">
-    <span class="status-indicator" id="status-indicator"></span>
-    <strong id="status-label">READY</strong>
-    <span id="status-message"></span>
-  </div>
-  <div class="status-meta">
-    <span id="selected-range" hidden></span>
-    <span id="editor-where">Ln 1 · Col 1</span>
-    <button class="keymap-trigger" id="reset" type="button" title="Clear compiler results without changing the source">Clear results</button>
-    <button class="keymap-trigger" id="show-keymaps" type="button" aria-haspopup="dialog" aria-controls="keymaps-dialog" title="Show keyboard shortcuts (? or Cmd/Ctrl + /)" aria-keyshortcuts="Shift+Slash">Shortcuts</button>
-  </div>
-</footer>
-</div>
-
-<!-- Application-owned dialogs; native operating-system file pickers and download prompts remain browser-controlled. -->
-<dialog class="hai-dialog" id="workbench-dialog" aria-labelledby="dialog-title" aria-describedby="dialog-copy">
-  <form id="dialog-form" method="dialog">
-    <div class="dialog-topline">
-      <span class="dialog-context" id="dialog-context">HAI</span>
-      <button type="button" class="dialog-close" id="dialog-close" aria-label="Close dialog">×</button>
-    </div>
-    <h2 id="dialog-title"></h2>
-    <p id="dialog-copy"></p>
-    <label class="dialog-file-field" id="dialog-file-field" for="dialog-filename" hidden>
-      Filename
-      <input id="dialog-filename" type="text" autocomplete="off" spellcheck="false" maxlength="90"/>
-    </label>
-    <div class="dialog-actions">
-      <button type="button" class="dialog-secondary" id="dialog-cancel">Cancel</button>
-      <button type="submit" class="dialog-primary" id="dialog-confirm">Continue</button>
-    </div>
-  </form>
-</dialog>
-
-<dialog class="hai-dialog keymaps-dialog" id="keymaps-dialog" aria-labelledby="keymaps-title">
-  <div class="dialog-topline">
-    <span class="dialog-context">HAI</span>
-    <button class="dialog-close" id="keymaps-close" type="button" aria-label="Close shortcuts">×</button>
-  </div>
-  <h2 id="keymaps-title">Keyboard shortcuts</h2>
-  <p>Use <kbd>?</kbd> to open this guide. Press Escape to close it.</p>
-  <div class="keymap-section">
-    <h3>File &amp; execution</h3>
-    <dl>
-      <div><dt>Run program</dt><dd><kbd>⌘ / Ctrl + Enter</kbd></dd></div>
-      <div><dt>Download source</dt><dd><kbd>⌘ / Ctrl + S</kbd></dd></div>
-      <div><dt>Open source file</dt><dd><kbd>⌘ / Ctrl + O</kbd></dd></div>
-      <div><dt>Show shortcuts</dt><dd><kbd>?</kbd><span class="shortcut-or">or</span><kbd>⌘ / Ctrl + /</kbd></dd></div>
-    </dl>
-    <h3>Editing &amp; inspection</h3>
-    <dl>
-      <div><dt>Indent selection</dt><dd><kbd>Tab</kbd></dd></div>
-      <div><dt>Outdent selection</dt><dd><kbd>Shift + Tab</kbd></dd></div>
-      <div><dt>Leave code editor</dt><dd><kbd>Esc</kbd></dd></div>
-      <div><dt>Navigate tabs</dt><dd><kbd>←</kbd><kbd>→</kbd></dd></div>
-      <div><dt>Next / previous AST match</dt><dd><kbd>Enter / Shift + Enter</kbd></dd></div>
-    </dl>
-  </div>
-  <div class="dialog-actions"><button type="button" class="dialog-secondary" id="keymaps-done">Close</button></div>
-</dialog>
-</body>
+    </dialog>
+  </body>
 </html>

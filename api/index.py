@@ -4,7 +4,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, abort, jsonify, request, send_from_directory
 from app import analyze, tokenize_source, run_program_inline, MAX_SOURCE_BYTES
 
 FRONTEND = ROOT / "frontend"
@@ -29,6 +29,27 @@ def app_js():
 @app.get("/vendor/<path:filename>")
 def vendor(filename: str):
     return send_from_directory(FRONTEND / "vendor", filename)
+
+
+# Match the local server and support browsers that request /favicon.ico automatically.
+@app.get("/favicon.svg")
+def favicon_svg():
+    return send_from_directory(FRONTEND, "favicon.svg", mimetype="image/svg+xml")
+
+
+@app.get("/favicon.ico")
+def favicon_ico():
+    return send_from_directory(FRONTEND, "favicon.ico", mimetype="image/vnd.microsoft.icon")
+
+
+@app.get("/favicon-32x32.png")
+def favicon_png():
+    return send_from_directory(FRONTEND, "favicon-32x32.png", mimetype="image/png")
+
+
+@app.get("/apple-touch-icon.png")
+def touch_icon():
+    return send_from_directory(FRONTEND, "apple-touch-icon.png", mimetype="image/png")
 
 
 @app.post("/api/analyze")
@@ -69,4 +90,4 @@ def catch_all(path: str):
     candidate = FRONTEND / path
     if candidate.is_file():
         return send_from_directory(FRONTEND, path)
-    return send_from_directory(FRONTEND, "index.html")
+    abort(404)

@@ -30,17 +30,28 @@ def ast_to_dict(value, spans=None, output_locations=None, path="$"):
             loc = spans.get(id(value))
             if loc is not None:
                 output_locations[path] = dict(loc)
-        return {"node": type(value).__name__, **{
-            field.name: ast_to_dict(getattr(value, field.name), spans,
-                                    output_locations, f"{path}.{field.name}")
-            for field in fields(value)
-        }}
+        return {
+            "node": type(value).__name__,
+            **{
+                field.name: ast_to_dict(
+                    getattr(value, field.name),
+                    spans,
+                    output_locations,
+                    f"{path}.{field.name}",
+                )
+                for field in fields(value)
+            },
+        }
     if isinstance(value, list):
-        return [ast_to_dict(item, spans, output_locations, f"{path}[{i}]")
-                for i, item in enumerate(value)]
+        return [
+            ast_to_dict(item, spans, output_locations, f"{path}[{i}]")
+            for i, item in enumerate(value)
+        ]
     if isinstance(value, dict):
-        return {key: ast_to_dict(item, spans, output_locations, f"{path}.{key}")
-                for key, item in value.items()}
+        return {
+            key: ast_to_dict(item, spans, output_locations, f"{path}.{key}")
+            for key, item in value.items()
+        }
     return value
 
 
@@ -62,12 +73,14 @@ def add_parser_error_location(error, parser, locations):
             selected["end_offset"] = selected["start_offset"]
     else:
         previous = locations[-1]
-        selected = {"line": previous["end_line"],
-                    "column": previous["end_column"],
-                    "end_line": previous["end_line"],
-                    "end_column": previous["end_column"],
-                    "start_offset": previous["end_offset"],
-                    "end_offset": previous["end_offset"]}
+        selected = {
+            "line": previous["end_line"],
+            "column": previous["end_column"],
+            "end_line": previous["end_line"],
+            "end_column": previous["end_column"],
+            "start_offset": previous["end_offset"],
+            "end_offset": previous["end_offset"],
+        }
     # A custom parser error might point to a previously consumed token; do
     # not overwrite its explicit line with a misleading current-token span.
     match = re.match(r"Line (\d+):", str(error))
@@ -80,8 +93,14 @@ def add_parser_error_location(error, parser, locations):
 def error_details(error, stage):
     """Preserve known locations without inventing exact parser/runtime columns."""
     details = {"stage": stage, "message": str(error)}
-    for key in ("line", "column", "end_line", "end_column",
-                "start_offset", "end_offset"):
+    for key in (
+        "line",
+        "column",
+        "end_line",
+        "end_column",
+        "start_offset",
+        "end_offset",
+    ):
         value = getattr(error, key, None)
         if value is not None:
             details[key] = value
@@ -101,7 +120,9 @@ def parse_complete(tokens, locations):
         program = parser.parse()
         if not parser.is_at_end():
             token = parser.peek()
-            raise SyntaxError(f"Line {token[2]}: Unexpected token '{token[1]}' after program.")
+            raise SyntaxError(
+                f"Line {token[2]}: Unexpected token '{token[1]}' after program."
+            )
         return program, parser.node_spans
     except SyntaxError as error:
         add_parser_error_location(error, parser, locations)
@@ -117,14 +138,26 @@ def analyze(source):
         program, spans = parse_complete(tokens, locations)
         ast_locations = {}
         ast = ast_to_dict(program, spans, ast_locations)
-        return {"ok": True, "tokens": tokens, "token_locations": locations,
-                "ast": ast, "ast_locations": ast_locations}
+        return {
+            "ok": True,
+            "tokens": tokens,
+            "token_locations": locations,
+            "ast": ast,
+            "ast_locations": ast_locations,
+        }
     except (SyntaxError, RecursionError, ValueError) as error:
         if isinstance(error, RecursionError):
-            error = ValueError("Expressions are nested too deeply. Try simplifying the program.")
-        return {"ok": False, "tokens": list(getattr(error, "tokens", tokens)),
-                "token_locations": list(getattr(error, "token_locations", locations)),
-                "ast": None, "ast_locations": {}, "error": error_details(error, stage)}
+            error = ValueError(
+                "Expressions are nested too deeply. Try simplifying the program."
+            )
+        return {
+            "ok": False,
+            "tokens": list(getattr(error, "tokens", tokens)),
+            "token_locations": list(getattr(error, "token_locations", locations)),
+            "ast": None,
+            "ast_locations": {},
+            "error": error_details(error, stage),
+        }
 
 
 # --- Tokenize only ---
@@ -134,9 +167,12 @@ def tokenize_source(source):
         tokens, locations = tokenize_with_locations(source)
         return {"ok": True, "tokens": tokens, "token_locations": locations}
     except SyntaxError as error:
-        return {"ok": False, "tokens": list(getattr(error, "tokens", [])),
-                "token_locations": list(getattr(error, "token_locations", [])),
-                "error": error_details(error, "lexer")}
+        return {
+            "ok": False,
+            "tokens": list(getattr(error, "tokens", [])),
+            "token_locations": list(getattr(error, "token_locations", [])),
+            "error": error_details(error, "lexer"),
+        }
 
 
 # --- Run (child process side) ---
@@ -183,14 +219,32 @@ def run_in_child():
         stage = "runtime"
         interpreter.execute(program)
     except NeedInput as waiting:
-        result = {"ok": True, "error": None, "needs_input": True, "prompt": waiting.prompt}
-    except (SyntaxError, RuntimeError, ZeroDivisionError, RecursionError, ValueError) as error:
-        result = {"ok": False, "needs_input": False,
-                  "error": error_details(error, stage)}
+        result = {
+            "ok": True,
+            "error": None,
+            "needs_input": True,
+            "prompt": waiting.prompt,
+        }
+    except (
+        SyntaxError,
+        RuntimeError,
+        ZeroDivisionError,
+        RecursionError,
+        ValueError,
+    ) as error:
+        result = {
+            "ok": False,
+            "needs_input": False,
+            "error": error_details(error, stage),
+        }
 
     result["output"] = "".join(captured)[:MAX_OUTPUT_CHARACTERS]
     result["symbols"] = [
-        {"name": name, "type": interpreter.cast(value, "TYPE"), "value": interpreter.display(value)}
+        {
+            "name": name,
+            "type": interpreter.cast(value, "TYPE"),
+            "value": interpreter.display(value),
+        }
         for name, value in interpreter.variables.items()
     ]
     print(json.dumps(result))
@@ -227,7 +281,11 @@ def run_program_inline(source, inputs):
             "needs_input": False,
             "output": "".join(captured)[:MAX_OUTPUT_CHARACTERS],
             "symbols": [
-                {"name": name, "type": interpreter.cast(value, "TYPE"), "value": interpreter.display(value)}
+                {
+                    "name": name,
+                    "type": interpreter.cast(value, "TYPE"),
+                    "value": interpreter.display(value),
+                }
                 for name, value in interpreter.variables.items()
             ],
             "error": None,
@@ -239,20 +297,36 @@ def run_program_inline(source, inputs):
             "prompt": waiting.prompt,
             "output": "".join(captured)[:MAX_OUTPUT_CHARACTERS],
             "symbols": [
-                {"name": name, "type": interpreter.cast(value, "TYPE"), "value": interpreter.display(value)}
+                {
+                    "name": name,
+                    "type": interpreter.cast(value, "TYPE"),
+                    "value": interpreter.display(value),
+                }
                 for name, value in interpreter.variables.items()
             ],
             "error": None,
         }
-    except (SyntaxError, RuntimeError, ZeroDivisionError, RecursionError, ValueError) as error:
+    except (
+        SyntaxError,
+        RuntimeError,
+        ZeroDivisionError,
+        RecursionError,
+        ValueError,
+    ) as error:
         if isinstance(error, RecursionError):
-            error = ValueError("Expressions are nested too deeply. Try simplifying the program.")
+            error = ValueError(
+                "Expressions are nested too deeply. Try simplifying the program."
+            )
         return {
             "ok": False,
             "needs_input": False,
             "output": "".join(captured)[:MAX_OUTPUT_CHARACTERS],
             "symbols": [
-                {"name": name, "type": interpreter.cast(value, "TYPE"), "value": interpreter.display(value)}
+                {
+                    "name": name,
+                    "type": interpreter.cast(value, "TYPE"),
+                    "value": interpreter.display(value),
+                }
                 for name, value in interpreter.variables.items()
             ],
             "error": error_details(error, "runtime"),
@@ -275,15 +349,25 @@ def run_program(source, inputs):
         finished = subprocess.run(
             [sys.executable, "-B", str(Path(__file__).resolve()), "--run-child"],
             input=json.dumps({"source": source, "inputs": inputs}),
-            capture_output=True, text=True, timeout=RUN_TIMEOUT_SECONDS,
-            cwd=str(Path(__file__).parent))
+            capture_output=True,
+            text=True,
+            timeout=RUN_TIMEOUT_SECONDS,
+            cwd=str(Path(__file__).parent),
+        )
         return json.loads(finished.stdout)
     except subprocess.TimeoutExpired:
-        message = f"Program ran longer than {RUN_TIMEOUT_SECONDS} seconds, so it was stopped."
+        message = (
+            f"Program ran longer than {RUN_TIMEOUT_SECONDS} seconds, so it was stopped."
+        )
     except (ValueError, OSError):
         message = "The runner crashed before finishing. Check the terminal for details."
-    return {"ok": False, "needs_input": False, "output": "", "symbols": [],
-            "error": {"stage": "runtime", "message": message}}
+    return {
+        "ok": False,
+        "needs_input": False,
+        "output": "",
+        "symbols": [],
+        "error": {"stage": "runtime", "message": message},
+    }
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -296,11 +380,17 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
-        assets = {"/": ("index.html", "text/html"),
-                  "/style.css": ("style.css", "text/css"),
-                  "/app.js": ("app.js", "text/javascript"),
-                  "/vendor/codemirror.js": ("vendor/codemirror.js", "text/javascript"),
-                  "/vendor/codemirror.css": ("vendor/codemirror.css", "text/css")}
+        assets = {
+            "/": ("index.html", "text/html"),
+            "/style.css": ("style.css", "text/css"),
+            "/app.js": ("app.js", "text/javascript"),
+            "/vendor/codemirror.js": ("vendor/codemirror.js", "text/javascript"),
+            "/vendor/codemirror.css": ("vendor/codemirror.css", "text/css"),
+            "/favicon.svg": ("favicon.svg", "image/svg+xml"),
+            "/favicon.ico": ("favicon.ico", "image/vnd.microsoft.icon"),
+            "/favicon-32x32.png": ("favicon-32x32.png", "image/png"),
+            "/apple-touch-icon.png": ("apple-touch-icon.png", "image/png"),
+        }
         asset = assets.get(self.path.split("?", 1)[0])
         if asset is None:
             self.send_error(404)
@@ -319,7 +409,9 @@ class Handler(BaseHTTPRequestHandler):
         try:
             length = int(self.headers.get("Content-Length", "0"))
             if not 0 < length <= MAX_SOURCE_BYTES:
-                self.send_json({"message": "Choose a program smaller than 100 KB."}, 413)
+                self.send_json(
+                    {"message": "Choose a program smaller than 100 KB."}, 413
+                )
                 return
             data = json.loads(self.rfile.read(length))
             if not isinstance(data, dict) or not isinstance(data.get("source"), str):
@@ -331,7 +423,9 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(tokenize_source(data["source"]))
         elif self.path == "/api/run":
             inputs = data.get("inputs", [])
-            if not isinstance(inputs, list) or not all(isinstance(item, str) for item in inputs):
+            if not isinstance(inputs, list) or not all(
+                isinstance(item, str) for item in inputs
+            ):
                 self.send_json({"message": "inputs must be a list of strings."}, 400)
                 return
             self.send_json(run_program(data["source"], inputs))
@@ -351,4 +445,3 @@ if __name__ == "__main__":
         pass
     finally:
         server.server_close()
-
