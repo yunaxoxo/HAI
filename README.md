@@ -55,7 +55,6 @@ With Node.js installed, you can also run `node --check frontend/app.js`. No Node
 | [Contributing](CONTRIBUTING.md) | Local setup, tests, and contribution practices |
 | [Architecture](docs/ARCHITECTURE.md) | Interpreter pipeline, APIs, and source mapping |
 | [Deployment](DEPLOYMENT.md) | Local and Vercel deployment, verification, and limitations |
-| [Release checklist](docs/RELEASE_CHECKLIST.md) | Checks before merging or releasing |
 
 ## Repository overview
 
