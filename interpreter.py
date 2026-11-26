@@ -159,7 +159,7 @@ class Interpreter:
                 "SUM_OF": lambda: a + b,
                 "DIFF_OF": lambda: a - b,
                 "PRODUKT_OF": lambda: a * b,
-                "QUOSHUNT_OF": lambda: a / b,
+                "QUOSHUNT_OF": lambda: int(a / b) if isinstance(a, int) and isinstance(b, int) else a / b,
                 "MOD_OF": lambda: a % b,
                 "BIGGR_OF": lambda: max(a, b),
                 "SMALLR_OF": lambda: min(a, b),
