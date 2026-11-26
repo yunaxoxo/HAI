@@ -302,8 +302,8 @@ class Interpreter:
             except ReturnSignal as result:
                 return result.value
             except BreakSignal:
-                pass  # GTFO exits a function in this parser's language rules
-            return self.get("IT")
+                return None  # GTFO returns NOOB
+            return None  # falling off IF U SAY SO also returns NOOB
         finally:
             self.scopes.pop()
 
