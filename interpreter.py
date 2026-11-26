@@ -56,25 +56,16 @@ class Interpreter:
 
     @property # Combines the variables in all scopes into one dictionary
     def variables(self):
-        result = {}
-        for scope in self.scopes:
-            result.update(scope)
-        return result
+        return dict(self.scopes[-1])
 
-    # This searches for a variable and returns its value
+    # Functions cannot see the caller's variables, so only the active frame is searched.
     def get(self, name):
-        # reversed() call searches the most recently added scope first
-        for scope in reversed(self.scopes):
-            if name in scope:
-                return scope[name]
+        if name in self.scopes[-1]:
+            return self.scopes[-1][name]
         raise RuntimeError(f"Undefined variable: {name}")
 
-    # This updates the value if it already exists, if not then it creates in the innermost scope
+    # This updates a variable in the active frame, creating it there if it is new
     def set(self, name, value):
-        for scope in reversed(self.scopes):
-            if name in scope:
-                scope[name] = value
-                return
         self.scopes[-1][name] = value
 
     # This converts a value to a Boolean
