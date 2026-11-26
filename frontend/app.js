@@ -76,6 +76,10 @@ const editor = CodeMirror.fromTextArea($('#source'), {
   }
 });
 editor.setValue(EXAMPLES.hello);
+let docCounter = 0;
+state.documents = [];
+const firstDoc = newDocData('playground.lol', editor.getDoc());
+state.documents.push(firstDoc); state.activeDocId = firstDoc.id;
 editor.clearHistory();
 
 const el = (tag, cls = '', text = null) => {
@@ -95,6 +99,7 @@ function setStatus(label, message, kind = '') {
 }
 function updateButtons() { ['#tokenize','#analyze','#run','#reset'].forEach(id => { $(id).disabled = state.busy; }); }
 function setStages(last = '', failed = false, waiting = false) {
+  state.stagesArgs = [last, failed, waiting];
   const order = ['lexer','parser','runtime'];
   const end = order.indexOf(last);
   $$('.stages [data-stage]').forEach(item => {
@@ -102,9 +107,9 @@ function setStages(last = '', failed = false, waiting = false) {
     item.dataset.state = end < 0 || i > end ? '' : i < end ? 'ok' : failed ? 'error' : waiting ? 'active' : 'ok';
   });
 }
-function stamp(text) { $('#analysis-stamp').textContent = text; }
-function dirtyState(value) { state.dirty = value; $('#dirty-indicator').hidden = !value; }
-function setFilename(name) { state.filename = (name || 'playground.lol').replace(/[\\/]/g,'').slice(0,90); $('#filename').textContent = state.filename; }
+function stamp(text) { state.stampText = text; $('#analysis-stamp').textContent = text; }
+function dirtyState(value) { state.dirty = value; $('#dirty-indicator').hidden = !value; saveActiveDoc(); renderTabs(); }
+function setFilename(name) { state.filename = (name || 'playground.lol').replace(/[\\/]/g,'').slice(0,90); $('#filename').textContent = state.filename; saveActiveDoc(); renderTabs(); }
 function toEditorOffset(codepoint) {
   if (!Number.isInteger(codepoint) || codepoint < 0) return null;
   return Array.from(sourceText()).slice(0, codepoint).join('').length;
@@ -267,6 +272,99 @@ function sourceEdited() {
 function renderPosition() {
   const cursor = editor.getCursor();
   $('#editor-where').textContent=`Ln ${cursor.line + 1} · Col ${cursor.ch + 1}`;
+}
+
+// --- Open documents (tabs) ---
+// The top-level state fields always mirror the ACTIVE document. Switching tabs copies them
+// into the old document, swaps the CodeMirror buffer, and copies the new document back in.
+const DOC_FIELDS = ['filename','dirty','revision','analyzedRevision','tokens','tokenLocations','ast','astLocations',
+  'records','diagnostics','output','inputSpans','symbols','inputs','waiting','prompt','selectedPath','selectedToken',
+  'collapsed','astQuery','stampText','stagesArgs','stdin'];
+function newDocData(filename, cm) {
+  return { id: ++docCounter, cm, filename, dirty: false, revision: 0, analyzedRevision: -1, tokens: [],
+    tokenLocations: [], ast: null, astLocations: {}, records: new Map(), diagnostics: [], output: '',
+    inputSpans: [], symbols: [], inputs: [], waiting: false, prompt: 'GIMMEH', selectedPath: null,
+    selectedToken: -1, collapsed: new Set(), astQuery: '', stampText: 'Not analyzed', stagesArgs: [], stdin: '' };
+}
+function activeDoc() { return state.documents.find(d => d.id === state.activeDocId); }
+function uniqueFilename(name) {
+  const taken = new Set(state.documents.map(d => d.filename));
+  if (!taken.has(name)) return name;
+  const dot = name.lastIndexOf('.'), base = dot > 0 ? name.slice(0, dot) : name, ext = dot > 0 ? name.slice(dot) : '';
+  let n = 2; while (taken.has(`${base}-${n}${ext}`)) n++;
+  return `${base}-${n}${ext}`;
+}
+function saveActiveDoc() {
+  const doc = activeDoc(); if (!doc) return;
+  state.stdin = $('#stdin').value;
+  for (const field of DOC_FIELDS) doc[field] = state[field];
+  doc.cm = editor.getDoc();
+}
+function renderTabs() {
+  const strip = $('#doc-tabs'); strip.replaceChildren();
+  for (const doc of state.documents) {
+    const active = doc.id === state.activeDocId;
+    const tab = el('div', 'doc-tab' + (active ? ' active' : '')); tab.setAttribute('role', 'presentation');
+    const label = el('button', 'doc-tab-label', doc.filename); label.type = 'button';
+    label.setAttribute('role', 'tab'); label.setAttribute('aria-selected', String(active));
+    label.title = doc.filename + (doc.dirty ? ' (unsaved changes)' : '');
+    if (doc.dirty) label.append(el('span', 'doc-tab-dirty', '●'));
+    label.addEventListener('click', () => activateDoc(doc.id));
+    const close = el('button', 'doc-tab-close', '×'); close.type = 'button';
+    close.setAttribute('aria-label', `Close ${doc.filename}`);
+    close.addEventListener('click', () => closeDoc(doc.id));
+    tab.append(label, close); strip.append(tab);
+    if (active) requestAnimationFrame(() => tab.scrollIntoView({ block: 'nearest', inline: 'nearest' }));
+  }
+}
+function activateDoc(id) {
+  if (id === state.activeDocId) return;
+  const next = state.documents.find(d => d.id === id); if (!next) return;
+  if (state.abort) state.abort.abort();      // drop any in-flight request for the tab we are leaving
+  state.runningSerial++;
+  saveActiveDoc();
+  clearDiagnostics(); clearMarker(state.selectedMarker); clearMarker(state.previewMarker);
+  state.selectedMarker = null; state.previewMarker = null;
+  state.activeDocId = id;
+  editor.swapDoc(next.cm);
+  for (const field of DOC_FIELDS) state[field] = next[field];
+  $('#stdin').value = state.stdin; $('#clear-input').disabled = !state.stdin;
+  state.selectedPath = null; state.selectedToken = -1;
+  $('#filename').textContent = state.filename; $('#dirty-indicator').hidden = !state.dirty;
+  $('#ast-find').value = state.astQuery;
+  $('#analysis-stamp').textContent = state.stampText; setStages(...state.stagesArgs);
+  const badge = (selector, count) => { $(selector).textContent = count ? String(count) : ''; $(selector).hidden = !count; };
+  badge('#token-count', state.tokens.length); badge('#ast-count', state.records.size);
+  badge('#symbol-count', state.symbols.length);
+  $('#run-duration').textContent = ''; $('#selected-range').textContent = ''; $('#selected-range').hidden = true;
+  setDiagnostics(state.diagnostics);
+  renderTokens(); renderSymbols(); renderAST(); renderOutput(); renderTabs(); renderPosition();
+  setStatus('READY', `Switched to ${state.filename}.`);
+  editor.refresh();
+}
+function openDocument(text, filename) {
+  const doc = newDocData(uniqueFilename(filename), new CodeMirror.Doc(text, 'lolcode'));
+  state.documents.push(doc);
+  activateDoc(doc.id);
+}
+function newDocument() { openDocument('HAI\n\nKTHXBYE\n', 'playground.lol'); showMobileView('code'); editor.focus(); }
+async function closeDoc(id) {
+  const doc = state.documents.find(d => d.id === id); if (!doc) return;
+  if (id === state.activeDocId) saveActiveDoc();
+  if (doc.dirty) {
+    const okay = await requestDecision({ context: 'CLOSE TAB', title: 'Close unsaved file?',
+      message: `“${doc.filename}” has unsaved changes. Download a copy first if you need them.`, action: 'Close file' });
+    if (!okay) return;
+  }
+  const index = state.documents.indexOf(doc);
+  if (state.documents.length === 1) {   // last tab: reset to a clean playground buffer
+    openDocument(EXAMPLES.hello, 'playground.lol');
+    state.documents.splice(state.documents.indexOf(doc), 1);
+    renderTabs(); return;
+  }
+  if (id === state.activeDocId) activateDoc((state.documents[index + 1] || state.documents[index - 1]).id);
+  state.documents.splice(state.documents.indexOf(doc), 1);
+  renderTabs();
 }
 editor.on('change', sourceEdited);
 editor.on('cursorActivity', () => { renderPosition(); if (!state.programmaticSelection) syncFromEditor(); });
@@ -838,16 +936,16 @@ function showMobileView(view) {
 async function api(endpoint,extra={}) {
   if(state.busy)return null;
   state.busy=true;updateButtons();setStatus('WORKING','Processing source…','busy');
-  const revision=state.revision;
+  const revision=state.revision,docId=state.activeDocId;
   const controller=new AbortController();state.abort=controller;
   try {
     const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source:sourceText(),...extra}),signal:controller.signal});
     let data;try{data=await response.json();}catch{throw new Error('The server returned an unreadable response.');}
     if(!response.ok)throw new Error(data.message||`Request failed (${response.status})`);
-    if(revision!==state.revision)return null;
+    if(revision!==state.revision||docId!==state.activeDocId)return null;
     return data;
   }catch(error){
-    if(error.name!=='AbortError'&&revision===state.revision){
+    if(error.name!=='AbortError'&&revision===state.revision&&docId===state.activeDocId){
       setStatus('CONNECTION ERROR',error.message+' Check that the Python server is running.','error');
       setDiagnostics([{stage:'network',message:error.message}]);selectConsole('problems');showMobileView('console');
     }
@@ -894,10 +992,11 @@ async function analyzeProgram(fromRun=false) {
 }
 async function run(fresh=true) {
   if(state.busy)return;
-  const serial=++state.runningSerial;
+  const serial=++state.runningSerial,docId=state.activeDocId;
   if(fresh){state.inputs=[];state.output='';state.inputSpans=[];state.waiting=false;}
   if(state.analyzedRevision!==state.revision){
     const analyzed=await analyzeProgram(true);
+    if(docId!==state.activeDocId)return;
     if(!analyzed||serial!==state.runningSerial){if(!analyzed){state.output='';renderOutput();}return;}
   }
   const presets=$('#stdin').value ? $('#stdin').value.split('\n') : [];
@@ -918,7 +1017,10 @@ async function run(fresh=true) {
   showMobileView('console');
 }
 function updateSource(value,name='playground.lol') {
-  editor.setValue(value);editor.clearHistory();setFilename(name);dirtyState(false);
+  // A clean, single tab is replaced in place; otherwise the content opens in its own tab.
+  if(state.documents.length===1&&!state.dirty){
+    editor.setValue(value);editor.clearHistory();setFilename(name);dirtyState(false);
+  } else openDocument(value,name);
   editor.setCursor(0,0);renderPosition();
   setStatus('READY','Source loaded.');
   showMobileView('code');
@@ -1137,17 +1239,9 @@ async function loadSelectedSample(value){
   if(!Object.hasOwn(EXAMPLES,value))return;
   const name=[...sampleSelect.options].find(option=>option.value===value)?.textContent || 'this sample';
   closeSampleMenu();
-  if(state.dirty){
-    const okay=await requestDecision({
-      context:'SAMPLE',title:'Replace current source?',
-      message:`Loading “${name}” replaces your unsaved edits. Download a copy first if you need them.`,
-      action:'Replace source'
-    });
-    if(!okay){sampleTrigger.focus();return;}
-  }
   sampleSelect.value=value;
   updateSampleLabel();
-  updateSource(EXAMPLES[value], 'playground.lol');
+  updateSource(EXAMPLES[value], `${value}.lol`);
   setMobileSamples(false);
   sampleTrigger.focus();
 }
@@ -1157,19 +1251,13 @@ $('#file').addEventListener('change',async event=>{
   try {
     if(file.size>90_000)throw new Error('Choose a file smaller than 90 KB.');
     if(!/\.(lol|txt)$/i.test(file.name))throw new Error('Choose a .lol or .txt source file.');
-    if(state.dirty){
-      const okay=await requestDecision({
-        context:'OPEN FILE',title:'Replace current source?',
-        message:`Opening “${file.name}” will replace your unsaved edits. Download a copy first if you need them.`,
-        action:'Open file'
-      });
-      if(!okay)return;
-    }
     updateSource(await file.text(),file.name);
   }catch(error){setStatus('FILE ERROR',error.message,'error');}
   finally {event.target.value='';}
 });
 $('#download').addEventListener('click',save);
+$('#doc-new').addEventListener('click',newDocument);
+renderTabs();
 $('#explore').addEventListener('click',()=>{
   const active=$('#workbench').classList.toggle('expanded');
   $('#explore').setAttribute('aria-pressed',String(active));
@@ -1192,7 +1280,7 @@ divider.addEventListener('keydown',e=>{
   workbench.style.setProperty('--source-share',`${share}%`);divider.setAttribute('aria-valuenow',String(share));editor.refresh();
 });
 window.addEventListener('resize',()=>editor.refresh());
-window.addEventListener('beforeunload',e=>{if(state.dirty){e.preventDefault();e.returnValue='';}});
+window.addEventListener('beforeunload',e=>{if(state.dirty||state.documents.some(d=>d.dirty)){e.preventDefault();e.returnValue='';}});
 document.addEventListener('keydown', e => {
   if (!document.body.classList.contains('workbench-ready')) return;
   const command = e.metaKey || e.ctrlKey;
