@@ -1027,22 +1027,26 @@ button:disabled {
 .data-table tr.selected {
   background: #303331;
 }
+
 .token-table th:nth-child(1),
 .token-table td:nth-child(1) {
-  width: 40%;
+  width: 34%;
 }
 .token-table th:nth-child(2),
 .token-table td:nth-child(2) {
-  width: 39%;
+  width: 48%;
+  white-space: normal;
 }
 .token-table th:nth-child(3),
 .token-table td:nth-child(3) {
-  width: 21%;
+  width: 18%;
   white-space: nowrap;
   text-align: right;
+  vertical-align: top;
 }
 .token-table .token-lexeme {
   color: var(--text);
+  vertical-align: top;
 }
 .token-table .token-loc,
 .data-table .loc,
@@ -1056,31 +1060,46 @@ button:disabled {
 .token-table tr.selected td:first-child {
   box-shadow: inset 2px 0 #9eaba5;
 }
-.token-class {
-  padding: 0;
-  background: transparent !important;
-  border: 0;
-  border-radius: 0;
-  font: 550 11px var(--mono);
+.token-type-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
+.token-desc {
+  font: 540 11px/1.35 var(--sans);
+  overflow-wrap: anywhere;
+}
+.token-raw {
+  color: var(--dim);
+  font: 10px/1.2 var(--mono);
+  letter-spacing: 0.02em;
+}
+.token-desc.keyword,
 .token-class.keyword {
   color: #b8c7c9;
 }
+.token-desc.operator,
 .token-class.operator {
   color: #c8c9c7;
 }
+.token-desc.literal,
 .token-class.literal {
   color: #ccbba4;
 }
+.token-desc.identifier,
 .token-class.identifier {
   color: #e4e4e1;
 }
+.token-desc.punct,
 .token-class.punct {
   color: #b8b9b5;
 }
+.token-desc.comment,
 .token-class.comment {
   color: #92948f;
 }
+
 .symbol-type {
   color: #b9c5c0;
 }
@@ -1986,6 +2005,23 @@ body.boot-error .boot-status {
   }
 }
 @media (max-width: 440px) {
+  .data-table td,
+  .data-table th {
+    padding: 8px;
+  }
+  .token-table th:nth-child(1),
+  .token-table td:nth-child(1) {
+    width: 30%;
+  }
+  .token-table th:nth-child(2),
+  .token-table td:nth-child(2) {
+    width: 50%;
+  }
+  .token-table th:nth-child(3),
+  .token-table td:nth-child(3) {
+    width: 20%;
+  }
+
   .global-header {
     padding: 6px 10px 8px;
     gap: 4px 5px;

@@ -565,54 +565,189 @@ function selectAstMode(mode) {
   $$('[data-mode]').forEach(b=>{const yes=b.dataset.mode===mode;b.classList.toggle('active',yes);b.setAttribute('aria-pressed',String(yes));});
   renderAST();
 }
-function tokenClass(kind){
-  if(['NUMBR','NUMBAR','YARN','TROOF'].includes(kind))return 'literal';
-  if(kind==='IDENTIFIER')return 'identifier';
-  if(['NEWLINE','PLUS','COMMA','EXCLAMATION'].includes(kind))return 'punct';
-  if(kind==='COMMENT')return 'comment';
-  if(['SUM_OF','DIFF_OF','PRODUKT_OF','QUOSHUNT_OF','MOD_OF','SMOOSH','BOTH_OF','EITHER_OF','WON_OF'].includes(kind))return 'operator';
+
+const TOKEN_DESCRIPTIONS = {
+  // --- Whitespace & Line Delimiters ---
+  NEWLINE: 'Statement newline delimiter',
+  SKIP: 'Horizontal whitespace',
+
+  // --- Separators & Delimiters ---
+  PLUS: 'Output operand separator',
+  COMMA: 'Statement separator',
+  AN: 'Operand conjunction keyword',
+  EXCLAMATION: 'Newline suppression delimiter',
+
+  // --- Core Structure & Variables ---
+  HAI: 'Program start delimiter',
+  KTHXBYE: 'Program end delimiter',
+  WAZZUP: 'Variable declaration block start',
+  BUHBYE: 'Variable declaration block end',
+  I_HAS_A: 'Variable declaration keyword',
+  ITZ: 'Variable initialization keyword',
+  R: 'Assignment operator',
+
+  // --- Math Operations ---
+  SUM_OF: 'Arithmetic operator',
+  DIFF_OF: 'Arithmetic operator',
+  PRODUKT_OF: 'Arithmetic operator',
+  QUOSHUNT_OF: 'Arithmetic operator',
+  MOD_OF: 'Arithmetic operator',
+  BIGGR_OF: 'Comparison math operator',
+  SMALLR_OF: 'Comparison math operator',
+
+  // --- Boolean & Logic ---
+  BOTH_OF: 'Boolean logic operator',
+  EITHER_OF: 'Boolean logic operator',
+  WON_OF: 'Boolean logic operator',
+  NOT: 'Boolean negation operator',
+  ANY_OF: 'Infinite-arity OR operator',
+  ALL_OF: 'Infinite-arity AND operator',
+
+  // --- Comparison ---
+  BOTH_SAEM: 'Equality comparison operator',
+  DIFFRINT: 'Inequality comparison operator',
+
+  // --- String Operations & Casting ---
+  SMOOSH: 'String concatenation operator',
+  MAEK: 'Explicit typecast operator',
+  A: 'Typecast article keyword',
+  IS_NOW_A: 'In-place typecast keyword',
+
+  // --- I/O ---
+  VISIBLE: 'Output keyword',
+  GIMMEH: 'Input keyword',
+
+  // --- Conditionals ---
+  'O_RLY?': 'Conditional branch start',
+  YA_RLY: 'If-true branch keyword',
+  MEBBE: 'Else-if branch keyword',
+  NO_WAI: 'Else branch keyword',
+  OIC: 'Conditional / switch block end',
+
+  // --- Switch Statement ---
+  'WTF?': 'Switch block start',
+  OMG: 'Switch case keyword',
+  OMGWTF: 'Switch default case keyword',
+
+  // --- Loops ---
+  IM_IN_YR: 'Loop block start',
+  UPPIN: 'Loop increment keyword',
+  NERFIN: 'Loop decrement keyword',
+  YR: 'Loop / function parameter keyword',
+  TIL: 'Loop until-true condition',
+  WILE: 'Loop while-true condition',
+  IM_OUTTA_YR: 'Loop block end',
+
+  // --- Functions ---
+  HOW_IZ_I: 'Function definition keyword',
+  IF_U_SAY_SO: 'Function definition end',
+  GTFO: 'Void return / loop break keyword',
+  FOUND_YR: 'Value return keyword',
+  I_IZ: 'Function call keyword',
+
+  // --- Special Tokens ---
+  MKAY: 'Infinite-arity / call terminator',
+  SRS: 'Dynamic identifier dereference',
+
+  // --- Literals & Types ---
+  NUMBR: 'Integer literal',
+  NUMBAR: 'Floating-point literal',
+  YARN: 'String literal',
+  TROOF: 'Boolean literal',
+  TYPE: 'Data type keyword',
+  NOOB: 'Untyped / null literal',
+
+  // --- Identifiers & Comments ---
+  IDENTIFIER: 'Variable identifier',
+  COMMENT: 'Comment'
+};
+
+function tokenDescription(kind) {
+  return TOKEN_DESCRIPTIONS[kind] || String(kind).replaceAll('_', ' ');
+}
+
+function tokenClass(kind) {
+  if (['NUMBR', 'NUMBAR', 'YARN', 'TROOF', 'NOOB'].includes(kind)) return 'literal';
+  if (kind === 'IDENTIFIER') return 'identifier';
+  if (['NEWLINE', 'PLUS', 'COMMA', 'EXCLAMATION'].includes(kind)) return 'punct';
+  if (kind === 'COMMENT') return 'comment';
+  if ([
+    'SUM_OF', 'DIFF_OF', 'PRODUKT_OF', 'QUOSHUNT_OF', 'MOD_OF',
+    'BIGGR_OF', 'SMALLR_OF', 'SMOOSH', 'MAEK',
+    'BOTH_OF', 'EITHER_OF', 'WON_OF', 'NOT', 'ANY_OF', 'ALL_OF',
+    'BOTH_SAEM', 'DIFFRINT'
+  ].includes(kind)) return 'operator';
   return 'keyword';
 }
+
 function renderTokens() {
-  const surface=$('#token-surface');surface.replaceChildren();
-  const q=($('#token-filter').value||'').toLowerCase().trim();
-  const filtered=state.tokens.map((t,i)=>({t,i})).filter(({t})=>!q||t.some(v=>String(v).toLowerCase().includes(q)));
-  if(!state.tokens.length){surface.append(el('div','table-empty','No tokens. Use Tokenize or Analyze to inspect the source.'));return;}
-  if(!filtered.length){surface.append(el('div','table-empty','No matching tokens.'));return;}
-  const table=el('table','data-table token-table');
-  const head=el('thead'),row=el('tr');
-  for(const name of ['LEXEME','TYPE','LINE:COL'])row.append(el('th','',name));
-  head.append(row);table.append(head);
-  const body=el('tbody');
-  filtered.forEach(({t,i})=>{
-    const [kind,lexeme,line]=t,loc=state.tokenLocations[i];
-    const r=el('tr','clickable'+(i===state.selectedToken?' selected':''));r.tabIndex=0;
-    const cleanLexeme=escapeNewline(lexeme);
-    r.setAttribute('aria-label',`${kind} ${cleanLexeme}, line ${line}${loc?.column?`, column ${loc.column}`:''}`);
-    const lex=el('td','token-lexeme',cleanLexeme);lex.title=String(lexeme);
-    const type=el('td','token-kind');type.append(el('span','token-class '+tokenClass(kind),kind));
-    const place=el('td','token-loc',`${line}:${loc?.column??'—'}`);
-    r.append(lex,type,place);
-    const jump=()=>{
-      state.selectedToken=i;$$('#token-surface tbody tr').forEach(x=>x.classList.remove('selected'));r.classList.add('selected');
-      if(loc){paintRange(loc);selectionFromLocation(loc);}else selectionFromLocation({line});
-      $('#selected-range').textContent=`Token ${i+1} / ${state.tokens.length}`;
-      $('#selected-range').hidden=false;
+  const surface = $('#token-surface'); surface.replaceChildren();
+  const q = ($('#token-filter').value || '').toLowerCase().trim();
+  const filtered = state.tokens
+    .map((t, i) => ({ t, i, desc: tokenDescription(t[0]) }))
+    .filter(({ t, desc }) =>
+      !q ||
+      t.some(v => String(v).toLowerCase().includes(q)) ||
+      desc.toLowerCase().includes(q)
+    );
+  if (!state.tokens.length) {
+    surface.append(el('div', 'table-empty', 'No tokens. Use Tokenize or Analyze to inspect the source.'));
+    return;
+  }
+  if (!filtered.length) {
+    surface.append(el('div', 'table-empty', 'No matching tokens.'));
+    return;
+  }
+  const table = el('table', 'data-table token-table');
+  const head = el('thead'), row = el('tr');
+  for (const name of ['LEXEME', 'TYPE', 'LINE:COL']) row.append(el('th', '', name));
+  head.append(row); table.append(head);
+  const body = el('tbody');
+  filtered.forEach(({ t, i, desc }) => {
+    const [kind, lexeme, line] = t, loc = state.tokenLocations[i];
+    const r = el('tr', 'clickable' + (i === state.selectedToken ? ' selected' : '')); r.tabIndex = 0;
+    const cleanLexeme = escapeNewline(lexeme);
+    r.setAttribute('aria-label', `${desc} (${kind}) ${cleanLexeme}, line ${line}${loc?.column ? `, column ${loc.column}` : ''}`);
+
+    const lex = el('td', 'token-lexeme', cleanLexeme);
+    lex.title = String(lexeme);
+
+    const type = el('td', 'token-kind');
+    type.title = `${desc} (${kind})`;
+    const stack = el('div', 'token-type-stack');
+    stack.append(
+      el('span', 'token-desc ' + tokenClass(kind), desc),
+      el('span', 'token-raw', kind)
+    );
+    type.append(stack);
+
+    const place = el('td', 'token-loc', `${line}:${loc?.column ?? '—'}`);
+    r.append(lex, type, place);
+
+    const jump = () => {
+      state.selectedToken = i;
+      $$('#token-surface tbody tr').forEach(x => x.classList.remove('selected'));
+      r.classList.add('selected');
+      if (loc) { paintRange(loc); selectionFromLocation(loc); }
+      else selectionFromLocation({ line });
+      $('#selected-range').textContent = `Token ${i + 1} / ${state.tokens.length}`;
+      $('#selected-range').hidden = false;
     };
-    r.addEventListener('click',jump);
-    r.addEventListener('keydown',e=>{
-      if(e.key==='Enter'||e.key===' '){e.preventDefault();jump();}
-      else if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+    r.addEventListener('click', jump);
+    r.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); jump(); }
+      else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
-        const rows=[...body.querySelectorAll('tr')];
-        const next=rows[(rows.indexOf(r)+(e.key==='ArrowDown'?1:-1)+rows.length)%rows.length];
+        const rows = [...body.querySelectorAll('tr')];
+        const next = rows[(rows.indexOf(r) + (e.key === 'ArrowDown' ? 1 : -1) + rows.length) % rows.length];
         next?.focus();
       }
     });
     body.append(r);
   });
-  table.append(body);surface.append(table);
+  table.append(body); surface.append(table);
 }
+
 function renderSymbols() {
   const surface=$('#symbol-surface');surface.replaceChildren();
   if(!state.symbols.length){surface.append(el('div','table-empty','Run to inspect variable values.'));return;}
