@@ -88,7 +88,7 @@ class Interpreter:
     # Coerce values for arithmetic operations.
     def number(self, value):
         if value is None:
-            return 0
+            raise RuntimeError("Cannot implicitly convert NOOB to a number.")
         if isinstance(value, bool):
             return int(value)
         if isinstance(value, (int, float)):
@@ -107,6 +107,13 @@ class Interpreter:
             return "WIN"
         if value is False:
             return "FAIL"
+        if isinstance(value, float):
+            text = repr(value)
+            if "e" in text or "n" in text:  # exponent form, inf, nan: leave as Python prints them
+                return text
+            # Truncate (not round) to two decimals, keeping at least one: 3.14159 -> 3.14
+            whole, frac = text.split(".")
+            return f"{whole}.{frac[:2].rstrip('0') or '0'}"
         return str(value)
 
     # This handles the type target, and raises an exception when there is an unknown type
@@ -117,9 +124,9 @@ class Interpreter:
         if target == "TROOF":
             return self.truth(value)
         if target == "NUMBR":
-            return int(self.number(value))
+            return 0 if value is None else int(self.number(value))
         if target == "NUMBAR":
-            return float(self.number(value))
+            return 0.0 if value is None else float(self.number(value))
         if target == "YARN":
             return self.display(value)
         if target == "TYPE":
@@ -185,7 +192,8 @@ class Interpreter:
             value = all(values) if node.op == "ALL_OF" else any(values)
         elif isinstance(node, CompareExpr):
             a, b = self.evaluate(node.left), self.evaluate(node.right)
-            value = (a == b) if node.op == "BOTH_SAEM" else (a != b)
+            same = type(a) is type(b) and a == b  # no implicit casting: WIN != 1, 1 != 1.0
+            value = same if node.op == "BOTH_SAEM" else not same
         elif isinstance(node, Concatenation):
             value = "".join(self.display(self.evaluate(v)) for v in node.values)
         else:
@@ -225,6 +233,7 @@ class Interpreter:
             else:
                 self.output(text)
         elif isinstance(node, InputStmt):
+            self.get(node.name)  # GIMMEH only fills a declared variable
             self.set(node.name, self.input(f"{node.name}? "))
             self.set("IT", self.get(node.name))
         elif isinstance(node, Conditional):
