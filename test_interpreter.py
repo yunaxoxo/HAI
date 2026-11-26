@@ -78,6 +78,10 @@ class InterpreterTests(unittest.TestCase):
                          ["3.14", "2.5", "3.14", "0.29"])
         self.assertEqual(run("VISIBLE SUM OF 0.1 AN 0.2\nVISIBLE 4.0\n"), ["0.3", "4.0"])
 
+    def test_numbar_display_ignores_binary_noise(self):
+        self.assertEqual(run("VISIBLE DIFF OF 4 AN 3.14\nVISIBLE PRODUKT OF 0.57 AN 100\nVISIBLE 3.14159\n"),
+                         ["0.86", "57.0", "3.14"])
+
     # --- NOOB / strict comparison / GIMMEH rules (#12) ---
     def test_noob_cannot_be_implicitly_numeric(self):
         for body in ("VISIBLE SUM OF u AN 1\n",
@@ -132,10 +136,14 @@ class InterpreterTests(unittest.TestCase):
         self.assertEqual(run("x\n" + body, "I HAS A x ITZ 2\n"), ["two"])
         self.assertEqual(run("x\n" + body, "I HAS A x ITZ 9\n"), ["other"])
 
-    @unittest.skip("no issue yet: a matching OMG should fall through to later cases until GTFO/OIC (spec p.5)")
     def test_switch_falls_through_until_gtfo(self):
-        body = "x\nWTF?\nOMG 1\nVISIBLE \"one\"\nOMG 2\nVISIBLE \"two\"\nGTFO\nOIC\n"
+        body = 'x\nWTF?\nOMG 1\nVISIBLE "one"\nOMG 2\nVISIBLE "two"\nGTFO\nOMG 3\nVISIBLE "three"\nOIC\n'
         self.assertEqual(run(body, "I HAS A x ITZ 1\n"), ["one", "two"])
+        self.assertEqual(run(body, "I HAS A x ITZ 3\n"), ["three"])
+
+    def test_switch_last_case_does_not_run_the_default(self):
+        body = 'x\nWTF?\nOMG 0\nVISIBLE "bye"\nOMGWTF\nVISIBLE "invalid"\nOIC\n'
+        self.assertEqual(run(body, "I HAS A x ITZ 0\n"), ["bye"])
 
     def test_loop_with_condition(self):
         body = "IM IN YR l UPPIN YR i TIL BOTH SAEM i AN 3\nVISIBLE i\nIM OUTTA YR l\n"

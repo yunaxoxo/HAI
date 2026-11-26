@@ -260,10 +260,8 @@ def tokenize_with_locations(source):
             end = position
             while end < len(source) and source[end] not in "\r\n":
                 end += 1
-            content = source[position:end]
-            if (source[line_start:position].strip(" \t") or
-                    not re.fullmatch(r"OBTW[ \t]*(?:BTW\b.*)?", content)):
-                fail("OBTW must occupy its own line (an optional BTW comment is allowed).")
+            if source[line_start:position].strip(" \t"):  # text after OBTW is just comment
+                fail("OBTW must occupy its own line (no statement may come before it).")
             block_start = line_number
             position = end
             continue

@@ -84,9 +84,14 @@ class LexerTests(unittest.TestCase):
         self.assertEqual([t for t in result if t[0] != 'NEWLINE'],
                          [('HAI', 'HAI', 1), ('VISIBLE', 'VISIBLE', 5), ('NUMBR', '1', 5), ('KTHXBYE', 'KTHXBYE', 6)])
 
+    def test_text_after_obtw_is_comment(self):
+        # spec p.2: "OBTW what way?" is fine; only a statement before OBTW or after TLDR is not
+        result = tokenize('HAI\nOBTW what way?\nanything\nTLDR\nVISIBLE 1\nKTHXBYE')
+        self.assertEqual([t[0] for t in result if t[0] != 'NEWLINE'], ['HAI', 'VISIBLE', 'NUMBR', 'KTHXBYE'])
+
     def test_invalid_block_delimiters(self):
         for source in ['OBTW\nmissing', 'VISIBLE 1 OBTW\nx\nTLDR',
-                       'OBTW extra\nx\nTLDR', 'OBTW\nx\nTLDR VISIBLE 1', 'TLDR']:
+                       'OBTW\nx\nTLDR VISIBLE 1', 'TLDR']:
             with self.subTest(source=source):
                 with self.assertRaises(SyntaxError):
                     tokenize(source)
