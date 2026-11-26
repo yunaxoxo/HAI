@@ -20,6 +20,13 @@ class WorkbenchTests(unittest.TestCase):
         source = 'HAI\nWAZZUP\nI HAS A n\nBUHBYE\nGIMMEH n\nVISIBLE SUM OF n AN 1\nKTHXBYE\n'
         self.assertEqual(run_program(source, ["41"])["output"], "n? 41\n42\n")
 
+    def test_run_reports_where_typed_input_sits_in_output(self):
+        source = 'HAI\nWAZZUP\nI HAS A n\nBUHBYE\nVISIBLE "Name: "!\nGIMMEH n\nVISIBLE n\nKTHXBYE\n'
+        result = run_program(source, ["bob"])
+        start, end = result["input_spans"][0]
+        self.assertEqual(result["output"][start:end], "bob")
+        self.assertEqual(result["output"], "Name: n? bob\nbob\n")
+
     def test_run_pauses_for_live_input(self):
         source = 'HAI\nWAZZUP\nI HAS A n\nBUHBYE\nGIMMEH n\nVISIBLE SUM OF n AN 1\nKTHXBYE\n'
         waiting = run_program(source, [])

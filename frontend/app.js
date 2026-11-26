@@ -60,7 +60,7 @@ const state = {
   tokens: [], tokenLocations: [], ast: null, astLocations: {}, records: new Map(),
   selectedPath: null, selectedToken: -1, collapsed: new Set(), astMode: 'outline', zoom: 1, astQuery: '',
   inspectorView: 'ast', consoleView: 'output', mobileView: 'code',
-  diagnostics: [], output: '', symbols: [], inputs: [], waiting: false,
+  diagnostics: [], output: '', inputSpans: [], symbols: [], inputs: [], waiting: false,
   filename: 'playground.lol', dirty: false, selectedMarker: null, previewMarker: null,
   diagnosticMarkers: [], programmaticSelection: false, runningSerial: 0
 };
@@ -203,7 +203,17 @@ function renderProblems() {
 }
 function renderOutput() {
   const area = $('#console-output'); area.replaceChildren();
-  if (state.output) area.append(el('pre','console-output',state.output));
+  if (state.output) {
+    const pre = el('pre','console-output');
+    let at = 0;
+    for (const [start, end] of state.inputSpans) {  // typed GIMMEH answers get their own accent colour
+      if (start < at || end > state.output.length) continue;
+      pre.append(state.output.slice(at, start), el('span','console-line input',state.output.slice(start, end)));
+      at = end;
+    }
+    pre.append(state.output.slice(at));
+    area.append(pre);
+  }
   else if (!state.waiting && !state.diagnostics.length) area.append(el('div','console-empty','Run a program to see its output.'));
   if (state.waiting) {
     const form = el('form','prompt-row');
@@ -234,7 +244,7 @@ function clearResults(silent = false) {
   state.tokens = []; state.tokenLocations=[]; state.ast=null; state.astLocations={}; state.records=new Map();
   state.selectedPath=null; state.selectedToken=-1; state.collapsed.clear();
   state.astQuery=''; $('#ast-find').value='';
-  state.diagnostics=[]; state.output=''; state.symbols=[]; state.inputs=[]; state.waiting=false;
+  state.diagnostics=[]; state.output=''; state.inputSpans=[]; state.symbols=[]; state.inputs=[]; state.waiting=false;
   state.analyzedRevision=-1;
   clearMarker(state.selectedMarker); clearMarker(state.previewMarker);
   state.selectedMarker=null; state.previewMarker=null;
@@ -469,6 +479,7 @@ function renderOutline() {
     const button=el('button','tree-node');button.type='button';button.dataset.path=path;
     button.classList.toggle('search-match',matchSet.has(path));
     button.setAttribute('aria-label',`${rec.node.node}${rec.summary ? `, ${rec.summary}` : ''}${rec.field !== 'root' ? `, ${rec.field}` : ''}`);
+    if(rec.field && rec.field!=='root')button.append(el('span','node-field',rec.field.replace(/\[(\d+)\]/g,' $1')));
     button.append(el('span','node-type',rec.node.node));
     if(rec.summary)button.append(el('span','node-property',rec.summary));
     button.addEventListener('click',()=>selectPath(path,true));
@@ -513,7 +524,7 @@ function renderGraph() {
     for(const child of entry.childrenVisible){
       const x1=entry.x+163,y1=entry.y+23,x2=child.x,y2=child.y+23;
       const link=document.createElementNS('http://www.w3.org/2000/svg','path');
-      const mid=(x1+x2)/2;link.setAttribute('d',`M ${x1} ${y1} H ${mid} V ${y2} H ${x2}`);
+      const mid=(x1+x2)/2;link.setAttribute('d',`M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`);
       link.classList.add('graph-branch');link.dataset.to=child.path;svg.append(link);
     }
   }
@@ -525,12 +536,24 @@ function renderGraph() {
     button.title=`${item.path}${state.astLocations[item.path]?' · Select source':''}`;
     button.addEventListener('click',()=>selectPath(item.path,true));
     if (item.children.length) {
-      button.title += ' · Double-click to collapse or expand';
-      button.addEventListener('dblclick',()=>{
+      button.classList.add('has-children');
+      const toggleBranch=()=>{
         if (state.collapsed.has(item.path)) state.collapsed.delete(item.path);
         else state.collapsed.add(item.path);
-        renderGraph();
-      });
+        const scrollBox=$('#ast-surface').querySelector('.ast-graph-scroll');
+        const keep=scrollBox?[scrollBox.scrollLeft,scrollBox.scrollTop]:null;
+        $('#ast-surface').replaceChildren();renderGraph();
+        const fresh=$('#ast-surface').querySelector('.ast-graph-scroll');
+        if(keep&&fresh)requestAnimationFrame(()=>{fresh.scrollLeft=keep[0];fresh.scrollTop=keep[1];});
+      };
+      const closed=state.collapsed.has(item.path);
+      button.title += ' · Double-click or use the +/− control to collapse or expand';
+      button.addEventListener('dblclick',toggleBranch);
+      const handle=el('span','graph-toggle',closed?'+':'−');
+      handle.setAttribute('role','button');handle.setAttribute('aria-label',`${closed?'Expand':'Collapse'} ${item.node.node}`);
+      handle.addEventListener('click',e=>{e.stopPropagation();toggleBranch();});
+      handle.addEventListener('dblclick',e=>e.stopPropagation());
+      button.append(handle);
     }
     button.addEventListener('mouseenter',()=>hoverPath(item.path));button.addEventListener('mouseleave',unhoverPath);
     stage.append(button);
@@ -546,6 +569,40 @@ function renderGraph() {
     scroll.scrollTop = Math.max(0, (target.y + 24) * zoom - scroll.clientHeight / 2);
   });
 }
+// Builds syntax-coloured JSON with DOM nodes only (no innerHTML), so source text can never inject markup.
+function buildHighlightedJson(value, indent = 0) {
+  const frag = document.createDocumentFragment();
+  const put = (cls, text) => frag.append(cls ? el('span', cls, text) : document.createTextNode(text));
+  const pad = n => '  '.repeat(n);
+  if (value === null) put('json-null', 'null');
+  else if (typeof value === 'string') put('json-string', JSON.stringify(value));
+  else if (typeof value === 'number') put('json-number', String(value));
+  else if (typeof value === 'boolean') put('json-bool', String(value));
+  else if (Array.isArray(value)) {
+    if (!value.length) put('json-punct', '[]');
+    else {
+      put('json-punct', '[\n');
+      value.forEach((item, i) => {
+        put('', pad(indent + 1)); frag.append(buildHighlightedJson(item, indent + 1));
+        put('json-punct', i < value.length - 1 ? ',\n' : '\n');
+      });
+      put('', pad(indent)); put('json-punct', ']');
+    }
+  } else {
+    const keys = Object.keys(value);
+    if (!keys.length) put('json-punct', '{}');
+    else {
+      put('json-punct', '{\n');
+      keys.forEach((key, i) => {
+        put('', pad(indent + 1)); put('json-key', JSON.stringify(key)); put('json-punct', ': ');
+        frag.append(buildHighlightedJson(value[key], indent + 1));
+        put('json-punct', i < keys.length - 1 ? ',\n' : '\n');
+      });
+      put('', pad(indent)); put('json-punct', '}');
+    }
+  }
+  return frag;
+}
 function renderAST() {
   const root=$('#ast-surface');root.replaceChildren();
   $('#tree-hint').textContent='';
@@ -557,7 +614,7 @@ function renderAST() {
   }
   if(state.astMode==='outline')renderOutline();
   else if(state.astMode==='graph')renderGraph();
-  else {root.append(el('pre','ast-raw',JSON.stringify(state.ast,null,2)));}
+  else {const raw=el('pre','ast-raw');raw.append(buildHighlightedJson(state.ast));root.append(raw);}
   renderDetails();
 }
 function selectAstMode(mode) {
@@ -838,7 +895,7 @@ async function analyzeProgram(fromRun=false) {
 async function run(fresh=true) {
   if(state.busy)return;
   const serial=++state.runningSerial;
-  if(fresh){state.inputs=[];state.output='';state.waiting=false;}
+  if(fresh){state.inputs=[];state.output='';state.inputSpans=[];state.waiting=false;}
   if(state.analyzedRevision!==state.revision){
     const analyzed=await analyzeProgram(true);
     if(!analyzed||serial!==state.runningSerial){if(!analyzed){state.output='';renderOutput();}return;}
@@ -848,6 +905,7 @@ async function run(fresh=true) {
   const data=await api('/api/run',{inputs:[...presets,...state.inputs]});
   if(!data||serial!==state.runningSerial)return;
   state.output=typeof data.output==='string'?data.output:'';
+  state.inputSpans=Array.isArray(data.input_spans)?data.input_spans:[];
   state.symbols=Array.isArray(data.symbols)?data.symbols:[];
   state.waiting=Boolean(data.needs_input);
   state.prompt=data.prompt||'GIMMEH';
@@ -1049,7 +1107,7 @@ $('#stdin').addEventListener('keydown',e=>{
 });
 $('#stdin').addEventListener('input',()=>{
   $('#clear-input').disabled=!$('#stdin').value;
-  state.inputs=[];state.waiting=false;state.output='';renderOutput();$('#run-duration').textContent='';
+  state.inputs=[];state.waiting=false;state.output='';state.inputSpans=[];renderOutput();$('#run-duration').textContent='';
   setStatus('INPUT UPDATED','Run again to apply changes.');
 });
 $('#clear-input').addEventListener('click',async()=>{

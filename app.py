@@ -195,7 +195,7 @@ def run_in_child():
     """
     request = json.loads(sys.stdin.read())
     pending_inputs = list(request.get("inputs", []))
-    captured = []
+    captured, echoes = [], []
     interpreter = Interpreter()
     result = {"ok": True, "error": None, "needs_input": False}
 
@@ -206,6 +206,7 @@ def run_in_child():
         if not pending_inputs:
             raise NeedInput(prompt)
         answer = pending_inputs.pop(0)
+        echoes.append((len(captured), len(prompt), len(answer)))
         captured.append(f"{prompt}{answer}\n")
         return answer
 
@@ -239,6 +240,7 @@ def run_in_child():
         }
 
     result["output"] = "".join(captured)[:MAX_OUTPUT_CHARACTERS]
+    result["input_spans"] = input_spans(captured, echoes)
     result["symbols"] = [
         {
             "name": name,
@@ -257,7 +259,7 @@ def run_program_inline(source, inputs):
     serverless runtimes. It preserves the same response shape as run_program().
     """
     pending_inputs = list(inputs or [])
-    captured = []
+    captured, echoes = [], []
     interpreter = Interpreter()
 
     def fake_output(text="", end="\n"):
@@ -267,6 +269,7 @@ def run_program_inline(source, inputs):
         if not pending_inputs:
             raise NeedInput(prompt)
         answer = pending_inputs.pop(0)
+        echoes.append((len(captured), len(prompt), len(answer)))
         captured.append(f"{prompt}{answer}\n")
         return answer
 
@@ -280,6 +283,7 @@ def run_program_inline(source, inputs):
             "ok": True,
             "needs_input": False,
             "output": "".join(captured)[:MAX_OUTPUT_CHARACTERS],
+            "input_spans": input_spans(captured, echoes),
             "symbols": [
                 {
                     "name": name,
@@ -296,6 +300,7 @@ def run_program_inline(source, inputs):
             "needs_input": True,
             "prompt": waiting.prompt,
             "output": "".join(captured)[:MAX_OUTPUT_CHARACTERS],
+            "input_spans": input_spans(captured, echoes),
             "symbols": [
                 {
                     "name": name,
@@ -321,6 +326,7 @@ def run_program_inline(source, inputs):
             "ok": False,
             "needs_input": False,
             "output": "".join(captured)[:MAX_OUTPUT_CHARACTERS],
+            "input_spans": input_spans(captured, echoes),
             "symbols": [
                 {
                     "name": name,
@@ -331,6 +337,20 @@ def run_program_inline(source, inputs):
             ],
             "error": error_details(error, "runtime"),
         }
+
+
+def input_spans(captured, echoes):
+    """Character ranges of typed GIMMEH answers inside the joined, capped output."""
+    starts, total = [], 0
+    for chunk in captured:
+        starts.append(total)
+        total += len(chunk)
+    spans = []
+    for index, prompt_length, answer_length in echoes:
+        start = starts[index] + prompt_length
+        if start < MAX_OUTPUT_CHARACTERS:
+            spans.append([start, min(start + answer_length, MAX_OUTPUT_CHARACTERS)])
+    return spans
 
 
 # --- Run (server side) ---
