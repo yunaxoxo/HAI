@@ -881,6 +881,51 @@ button:disabled {
   tab-size: 2;
   font: 11px/1.6 var(--mono);
 }
+.json-key { color: #a9bccb; }
+.json-string { color: #99bea9; }
+.json-number { color: #caa980; }
+.json-bool { color: #c4a5bb; }
+.json-null { color: #9a9b97; font-style: italic; }
+.json-punct { color: #7f817d; }
+.console-line.input {
+  color: #9cc4dc;
+  font-weight: 600;
+}
+.node-field {
+  flex: 0 0 auto;
+  color: #8e918d;
+  font: 10px var(--mono);
+}
+.node-field::after {
+  content: " ›";
+  color: #6c6e6a;
+}
+.graph-node.has-children {
+  padding-right: 30px;
+}
+.graph-toggle {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 20px;
+  height: 20px;
+  border: 1px solid #55595a;
+  border-radius: 50%;
+  background: #1f2022;
+  color: #c3c8c4;
+  font: 13px/17px var(--mono);
+  text-align: center;
+  cursor: pointer;
+}
+.graph-toggle::before {
+  content: "";
+  position: absolute;
+  inset: -12px;
+}
+.graph-toggle:hover {
+  border-color: #aeb6b1;
+  color: #fff;
+}
 .ast-graph-scroll {
   position: absolute;
   inset: 0;
