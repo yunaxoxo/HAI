@@ -51,7 +51,7 @@ class LexerTests(unittest.TestCase):
 
     def test_trailing_colon_before_closing_quote_is_not_an_escape(self):
         self.assertEqual([t[1] for t in tokenize('VISIBLE "x:" + WIN + " y:"')],
-                         ['VISIBLE', '"x:"', '+', 'WIN', '" y:"'])
+                         ['VISIBLE', '"x:"', '+', 'WIN', '+', '" y:"'])
 
     def test_yarn_colon_escapes_and_spans(self):
         source = 'HAI\nVISIBLE "Line 1:)Line 2:>Tabbed:: :"Quoted:":o"\nKTHXBYE'
