@@ -72,9 +72,33 @@ class InterpreterTests(unittest.TestCase):
         self.assertEqual(run('VISIBLE MAEK "12" NUMBR\nVISIBLE MAEK 3.9 NUMBR\n'), ["12", "3"])
         self.assertEqual(run("n IS NOW A NUMBAR\nVISIBLE n\n", "I HAS A n ITZ 2\n"), ["2.0"])
 
-    @unittest.skip("#12: NUMBAR to YARN should truncate to two decimals")
     def test_numbar_to_yarn_truncates_to_two_decimals(self):
-        self.assertEqual(run("VISIBLE MAEK 3.14159 YARN\n"), ["3.14"])
+        self.assertEqual(run("VISIBLE MAEK 3.14159 YARN\nVISIBLE 2.5\nVISIBLE 3.149\nVISIBLE 0.29\n"),
+                         ["3.14", "2.5", "3.14", "0.29"])
+        self.assertEqual(run("VISIBLE SUM OF 0.1 AN 0.2\nVISIBLE 4.0\n"), ["0.3", "4.0"])
+
+    # --- NOOB / strict comparison / GIMMEH rules (#12) ---
+    def test_noob_cannot_be_implicitly_numeric(self):
+        for body in ("VISIBLE SUM OF u AN 1\n",
+                     "IM IN YR l UPPIN YR u TIL BOTH SAEM u AN 2\nIM OUTTA YR l\n"):
+            with self.subTest(body=body), self.assertRaisesRegex(RuntimeError, "NOOB to a number"):
+                run(body, "I HAS A u\n")
+
+    def test_noob_explicit_casts_succeed(self):
+        body = "VISIBLE MAEK u NUMBR\nVISIBLE MAEK u NUMBAR\nVISIBLE MAEK u TROOF\nVISIBLE u\n"
+        self.assertEqual(run(body, "I HAS A u\n"), ["0", "0.0", "FAIL", "NOOB"])
+
+    def test_gimmeh_requires_a_declared_variable(self):
+        with self.assertRaisesRegex(RuntimeError, "Undefined variable: ghost"):
+            run("GIMMEH ghost\n", inputs=["x"])
+
+    def test_comparisons_do_not_cast_types(self):
+        for expr, expected in [("BOTH SAEM WIN AN 1", "FAIL"), ("DIFFRINT 1 AN 1.0", "WIN"),
+                               ("BOTH SAEM 1 AN 1.0", "FAIL"), ('BOTH SAEM "5" AN 5', "FAIL"),
+                               ("BOTH SAEM 1.5 AN 1.5", "WIN"), ('BOTH SAEM "a" AN "a"', "WIN"),
+                               ("BOTH SAEM WIN AN WIN", "WIN")]:
+            with self.subTest(expr=expr):
+                self.assertEqual(run(f"VISIBLE {expr}\n"), [expected])
 
     # --- input ---
     def test_gimmeh_reads_a_yarn(self):
