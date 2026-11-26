@@ -248,7 +248,7 @@ class Parser:
         self.loop_depth = 0
         self.switch_depth = 0
         self.func_depth = 0
-
+        self.infinite_bool_depth = 0
     def is_at_end(self) -> bool:
         return self.position >= len(self.tokens)
 
@@ -825,8 +825,16 @@ class Parser:
         
         op_token = self.advance()
         values = self.parse_value_list()
-        if self.check("MKAY"):
-            self.advance()
+        if self.infinite_bool_depth > 0:
+            raise SyntaxError(
+                f"Line {op_token[2]}: '{op_token[1]}' cannot be nested inside ALL OF / ANY OF."
+            )
+        self.infinite_bool_depth += 1
+        try:
+            values = self.parse_value_list()
+            self.consume("MKAY")
+        finally:
+            self.infinite_bool_depth -= 1
         return InfiniteBool(op=op_token[0], values=values)
     #<comparison-expression> ::= <comparison-operator> <value> AN <value>
     #handle the numbr/numbar restriction during interpretation or potential syntax analysis
