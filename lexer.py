@@ -92,9 +92,9 @@ TOKEN_SPECS = [
     # --- Literals & Types ---
     ("NUMBAR",        r"-?[0-9]+\.[0-9]+"),
     ("NUMBR",         r"-?[0-9]+"),
-    # Preserve literal text, including ordinary colons; escape decoding
-    # and interpolation belong to later stages.
-    ("YARN",          r'"[^"\r\n]*"'),
+    # Preserve literal text in token stream; decode_yarn() handles escape decoding
+    # for AST/runtime stages while spans retain exact raw offsets.
+    ("YARN",          r'"(?:[^":\r\n]|:[)>o":])*"'),
     ("TROOF",         r"\b(WIN|FAIL)\b"),
     ("TYPE",          r"\b(NOOB|TROOF|NUMBR|NUMBAR|YARN|TYPE)\b"),
     ("NOOB",          r"\bNOOB\b"),
@@ -109,7 +109,38 @@ NEWLINE_RE = re.compile(r"\r\n|\r|\n")
 BLOCK_OPEN_RE = re.compile(r"OBTW\b")
 BLOCK_CLOSE_RE = re.compile(r"TLDR\b")
 COMMENT_RE = re.compile(r"BTW\b")
+BTW_WORD_RE = re.compile(r"\bBTW\b")
 CONTINUATION_RE = re.compile(r"\.\.\.[ \t]*(?:BTW\b[^\r\n]*)?(?:\r\n|\r|\n)")
+
+YARN_ESCAPES = {
+    ")": "\n",
+    ">": "\t",
+    "o": "\x07",
+    '"': '"',
+    ":": ":",
+}
+
+
+def decode_yarn(raw_text):
+    """Strip surrounding quotes from a raw YARN lexeme and decode colon escapes."""
+    if len(raw_text) >= 2 and raw_text.startswith('"') and raw_text.endswith('"'):
+        inner = raw_text[1:-1]
+    else:
+        inner = raw_text
+
+    out = []
+    i = 0
+    while i < len(inner):
+        ch = inner[i]
+        if ch == ":" and i + 1 < len(inner):
+            code = inner[i + 1]
+            if code in YARN_ESCAPES:
+                out.append(YARN_ESCAPES[code])
+                i += 2
+                continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
 
 
 class LexicalError(SyntaxError):
@@ -160,6 +191,46 @@ def tokenize_with_locations(source):
         offset = position if at is None else at
         raise LexicalError(message, line_number, offset - line_start + 1,
                            tokens, locations, offset, len(source))
+
+    def line_balances(i, inside):
+        # shortcut: re-scans the rest of the line per ambiguous :", fine for short lines.
+        while i < len(source) and source[i] not in "\r\n":
+            ch = source[i]
+            if inside and ch == ":":
+                nxt = source[i + 1] if i + 1 < len(source) else ""
+                if nxt == '"':
+                    return line_balances(i + 2, True) or line_balances(i + 1, True)
+                i += 2 if nxt in (")", ">", "o", ":") else 1
+                continue
+            if ch == '"':
+                inside = not inside
+            elif not inside and BTW_WORD_RE.match(source, i):
+                return True
+            i += 1
+        return not inside
+
+    def scan_yarn(start):
+        cursor = start + 1
+        while cursor < len(source):
+            ch = source[cursor]
+            if ch in "\r\n":
+                fail("Unterminated YARN; strings must end on the same physical line.", at=start)
+            if ch == '"':
+                return cursor + 1
+            if ch == ":":
+                nxt = source[cursor + 1] if cursor + 1 < len(source) else ""
+                if nxt in (")", ">", "o", ":"):
+                    cursor += 2
+                    continue
+                if nxt == '"':
+                    # Ambiguous: escaped quote, or literal ':' then closing quote.
+                    # Prefer the escape when the rest of the line still balances.
+                    if line_balances(cursor + 2, True):
+                        cursor += 2
+                        continue
+                    return cursor + 2
+            cursor += 1
+        fail("Unterminated YARN; strings must end on the same physical line.", at=start)
 
     while position < len(source):
         # Handle line endings first, including those inside discarded comments.
@@ -217,13 +288,21 @@ def tokenize_with_locations(source):
                 continue
             fail("Line continuation '...' must appear at the end of a line before a newline (only spaces/tabs and a BTW comment may follow).")
 
+        if source[position] == '"':
+            end = scan_yarn(position)
+            raw_yarn = source[position:end]
+            tokens.append(("YARN", raw_yarn, line_number))
+            locations.append(span(position, end, line_number,
+                                  position - line_start + 1, line_number,
+                                  end - line_start + 1))
+            position = end
+            continue
+
         for name, regex in COMPILED_SPECS:
             match = regex.match(source, position)
             if match:
                 break
         else:
-            if source[position] == '"':
-                fail("Unterminated YARN; strings must end on the same physical line.")
             fail(f"Cannot read {source[position]!r}.")
 
         text = match.group()

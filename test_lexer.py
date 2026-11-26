@@ -1,6 +1,7 @@
 """Regression tests for LOLCODE lexical analysis."""
 import unittest
 
+from interpreter import Interpreter
 from lexer import LexicalError, tokenize, tokenize_with_locations
 
 
@@ -37,15 +38,42 @@ class LexerTests(unittest.TestCase):
 
     def test_strings_preserve_contents(self):
         for value in ['""', '"spaces    between"', '"x:"', '"Enter a value: "',
-                      '"BTW OBTW TLDR"', '"a\\b"', '"<script>alert(1)</script>"', '"café ♡"']:
+                      '"BTW OBTW TLDR"', '"a\\b"', '"<script>alert(1)</script>"', '"café ♡"',
+                      '"Line1:)Line2:>Tabbed::Colon:::"Quoted:":o"']:
             with self.subTest(value=value):
                 self.assertEqual(tokenize(value), [('YARN', value, 1)])
 
     def test_strings_cannot_cross_physical_lines(self):
-        for source in ['"missing', '"a\nb"', '"a\rb"']:
+        for source in ['"missing', '"a\nb"', '"a\rb"', 'VISIBLE "line1 :)\nline2"']:
             with self.subTest(source=source):
                 with self.assertRaises(SyntaxError):
                     tokenize(source)
+
+    def test_trailing_colon_before_closing_quote_is_not_an_escape(self):
+        self.assertEqual([t[1] for t in tokenize('VISIBLE "x:" + WIN + " y:"')],
+                         ['VISIBLE', '"x:"', '+', 'WIN', '" y:"'])
+
+    def test_yarn_colon_escapes_and_spans(self):
+        source = 'HAI\nVISIBLE "Line 1:)Line 2:>Tabbed:: :"Quoted:":o"\nKTHXBYE'
+        tokens, spans = tokenize_with_locations(source)
+        yarn_idx = next(i for i, t in enumerate(tokens) if t[0] == 'YARN')
+        yarn_tok = tokens[yarn_idx]
+        yarn_span = spans[yarn_idx]
+        self.assertEqual(yarn_tok, ('YARN', '"Line 1:)Line 2:>Tabbed:: :"Quoted:":o"', 2))
+        self.assertEqual(source[yarn_span['start_offset']:yarn_span['end_offset']], yarn_tok[1])
+        self.assertEqual((yarn_span['line'], yarn_span['column']), (2, 9))
+
+    def test_yarn_escape_runtime_decoding_visible_and_smoosh(self):
+        outputs = []
+        source = (
+            'HAI\n'
+            'VISIBLE "Line 1:)Line 2:>Tabbed:: :"Quoted:":o"\n'
+            'VISIBLE SMOOSH "A:)" AN "B:>C::" AN ":"D:":o" MKAY\n'
+            'KTHXBYE'
+        )
+        Interpreter(output_func=lambda text, **kw: outputs.append(text)).run_source(source)
+        self.assertEqual(outputs[0], 'Line 1\nLine 2\tTabbed: "Quoted"\x07')
+        self.assertEqual(outputs[1], 'A\nB\tC:"D"\x07')
 
     def test_inline_comments(self):
         self.assertEqual(tokenize('VISIBLE "BTW" BTW ignored\n'),
