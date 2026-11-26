@@ -29,6 +29,7 @@ WAZZUP
     I HAS A TYPE_VAR ITZ NUMBR
     I HAS A ROBOT ITZ "ROBOT WITH R"
     I HAS A APPLE ITZ "APPLE WITH A"
+    I HAS A EXTRA ITZ 100
 BUHBYE
 
 BTW Functions must be OUTSIDE HAI ... KTHXBYE 
@@ -38,8 +39,7 @@ HOW IZ I MID_GREET YR NAME
 IF U SAY SO
 TLDR
 
-BTW Standalone Variable Declarations and Assignments 
-I HAS A EXTRA ITZ 100
+BTW Standalone Assignments 
 EMPTY_VAR R 50
 ROBOT R "UPDATED ROBOT"
 

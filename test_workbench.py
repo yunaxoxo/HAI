@@ -11,17 +11,17 @@ class WorkbenchTests(unittest.TestCase):
         self.assertEqual((result["error"]["line"], result["error"]["column"]), (2, 1))
 
     def test_run_captures_output_and_symbols(self):
-        result = run_program('HAI\nI HAS A x ITZ 4\nVISIBLE SUM OF x AN 1\nKTHXBYE\n', [])
+        result = run_program('HAI\nWAZZUP\nI HAS A x ITZ 4\nBUHBYE\nVISIBLE SUM OF x AN 1\nKTHXBYE\n', [])
         self.assertTrue(result["ok"])
         self.assertEqual(result["output"], "5\n")
         self.assertIn("x", [item["name"] for item in result["symbols"]])
 
     def test_run_feeds_gimmeh_inputs(self):
-        source = 'HAI\nI HAS A n\nGIMMEH n\nVISIBLE SUM OF n AN 1\nKTHXBYE\n'
+        source = 'HAI\nWAZZUP\nI HAS A n\nBUHBYE\nGIMMEH n\nVISIBLE SUM OF n AN 1\nKTHXBYE\n'
         self.assertEqual(run_program(source, ["41"])["output"], "n? 41\n42\n")
 
     def test_run_pauses_for_live_input(self):
-        source = 'HAI\nI HAS A n\nGIMMEH n\nVISIBLE SUM OF n AN 1\nKTHXBYE\n'
+        source = 'HAI\nWAZZUP\nI HAS A n\nBUHBYE\nGIMMEH n\nVISIBLE SUM OF n AN 1\nKTHXBYE\n'
         waiting = run_program(source, [])
         self.assertTrue(waiting["ok"])
         self.assertTrue(waiting["needs_input"])
