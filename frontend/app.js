@@ -96,6 +96,7 @@ function setStatus(label, message, kind = '') {
   $('#status-message').textContent = message;
   $('#status-message').title = message;
   $('#status-indicator').className = 'status-indicator ' + kind;
+  document.querySelector('.statusbar').classList.toggle('has-error', kind === 'error');
 }
 function updateButtons() { ['#tokenize','#analyze','#run','#reset'].forEach(id => { $(id).disabled = state.busy; }); }
 function setStages(last = '', failed = false, waiting = false) {

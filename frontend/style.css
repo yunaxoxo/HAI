@@ -2200,6 +2200,84 @@ body.boot-error .boot-status {
     display: none;
   }
 }
+/* Touch targets: 44x44px hit areas. Invisible ::after padding keeps the visible controls compact. */
+@media (max-width: 740px), (pointer: coarse) {
+  .graph-controls button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .tree-line {
+    min-height: 44px;
+  }
+  .tree-chevron {
+    position: relative;
+    min-height: 44px;
+  }
+  .tree-chevron::after {
+    content: "";
+    position: absolute;
+    inset: 0 -14px;
+  }
+  .graph-toggle::before {
+    inset: -14px;
+  }
+  .dialog-close {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .sample-choice {
+    min-height: 44px;
+  }
+  .doc-tab-label,
+  .doc-tab-close,
+  .doc-new {
+    min-height: 44px;
+  }
+  .doc-tab-close,
+  .doc-new {
+    min-width: 44px;
+    padding-inline: 0;
+  }
+  .dialog-file-field input {
+    height: 44px;
+    font-size: 16px; /* 16px stops iOS Safari zooming in when the field is focused */
+  }
+}
+/* Short landscape phones (e.g. 844x390): drop the shell height lock so nothing is clipped. */
+@media (max-height: 430px) {
+  .app-shell {
+    min-height: 0;
+  }
+  .statusbar {
+    min-height: calc(32px + env(safe-area-inset-bottom));
+  }
+  .hai-dialog {
+    max-height: 92dvh;
+    overflow-y: auto;
+  }
+}
+/* Keep errors visible on narrow phones, where the status message is otherwise hidden. */
+@media (max-width: 440px) {
+  .statusbar.has-error {
+    flex-wrap: wrap;
+    padding-block: 6px;
+  }
+  .statusbar.has-error .status-main {
+    flex: 1 0 100%;
+    flex-wrap: wrap;
+  }
+  .statusbar.has-error .status-meta {
+    flex: 1 0 100%;
+    justify-content: flex-end;
+  }
+  .statusbar.has-error #status-message {
+    display: block;
+    flex: 1 0 100%;
+    max-height: 4.8em;
+    white-space: normal;
+    color: var(--error);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
