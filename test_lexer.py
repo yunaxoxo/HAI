@@ -133,7 +133,64 @@ class LexerTests(unittest.TestCase):
         self.assertIn(('PLUS', '+', 2), tokenize('HAI\nVISIBLE "hello" + 7\nKTHXBYE'))
         self.assertIn(('SUM_OF', 'SUM OF', 2), tokenize('HAI\nVISIBLE SUM OF 5 AN 3\nKTHXBYE'))
 
+    def test_line_continuation_suppresses_newline_and_preserves_lines(self):
+        for separator in ['\n', '\r\n', '\r']:
+            with self.subTest(separator=repr(separator)):
+                source = (
+                    f'HAI{separator}'
+                    f'    VISIBLE SUM OF 1 ... BTW continue{separator}'
+                    f'    AN 2{separator}'
+                    f'KTHXBYE'
+                )
+                tokens, spans = tokenize_with_locations(source)
+                self.assertEqual(
+                    tokens,
+                    [
+                        ('HAI', 'HAI', 1),
+                        ('NEWLINE', '\n', 1),
+                        ('VISIBLE', 'VISIBLE', 2),
+                        ('SUM_OF', 'SUM OF', 2),
+                        ('NUMBR', '1', 2),
+                        ('AN', 'AN', 3),
+                        ('NUMBR', '2', 3),
+                        ('NEWLINE', '\n', 3),
+                        ('KTHXBYE', 'KTHXBYE', 4),
+                    ],
+                )
+                an_span = next(span for tok, span in zip(tokens, spans) if tok[0] == 'AN')
+                self.assertEqual((an_span['line'], an_span['column']), (3, 5))
+
+    def test_chained_line_continuations(self):
+        source = 'HAI\nVISIBLE ...\n  SUM OF ...\n  1 ...\n  AN 2\nKTHXBYE'
+        tokens = [t for t in tokenize(source) if t[0] != 'NEWLINE']
+        self.assertEqual(
+            tokens,
+            [
+                ('HAI', 'HAI', 1),
+                ('VISIBLE', 'VISIBLE', 2),
+                ('SUM_OF', 'SUM OF', 3),
+                ('NUMBR', '1', 4),
+                ('AN', 'AN', 5),
+                ('NUMBR', '2', 5),
+                ('KTHXBYE', 'KTHXBYE', 6),
+            ],
+        )
+
+    def test_line_continuation_errors(self):
+        invalid_cases = [
+            ('VISIBLE 1 ... AN 2', 1, 11),
+            ('VISIBLE 1 ....\nAN 2', 1, 11),
+            ('VISIBLE 1 ...', 1, 11),
+            ('VISIBLE 1 ... BTW trailing comment at EOF', 1, 11),
+            ('HAI\nVISIBLE 1 ...\n  AN 2\n@', 4, 1),
+        ]
+        for source, expected_line, expected_col in invalid_cases:
+            with self.subTest(source=source):
+                with self.assertRaises(LexicalError) as thrown:
+                    tokenize_with_locations(source)
+                self.assertEqual((thrown.exception.line, thrown.exception.column),
+                                 (expected_line, expected_col))
+
 
 if __name__ == '__main__':
     unittest.main()
-
