@@ -22,6 +22,12 @@ class ParserTests(unittest.TestCase):
     def test_minimal_program(self):
         self.assertEqual(program(""), Program(body=[], functions=[]))
 
+    def test_hai_accepts_an_optional_version_number(self):
+        for header in ("HAI", "HAI 1.2", "HAI 1"):
+            with self.subTest(header=header):
+                tree = parse(tokenize(f"{header}\nVISIBLE 1\nKTHXBYE\n"))
+                self.assertEqual(len(tree.body), 1)
+
     def test_requires_hai_and_kthxbye(self):
         self.assertRejects("VISIBLE 1\n", "Expected 'HAI'")
         self.assertRejects("HAI\nVISIBLE 1\n", "Expected 'KTHXBYE'")
