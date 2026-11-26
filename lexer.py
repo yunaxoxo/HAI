@@ -109,6 +109,8 @@ NEWLINE_RE = re.compile(r"\r\n|\r|\n")
 BLOCK_OPEN_RE = re.compile(r"OBTW\b")
 BLOCK_CLOSE_RE = re.compile(r"TLDR\b")
 COMMENT_RE = re.compile(r"BTW\b")
+CONTINUATION_RE = re.compile(r"\.\.\.[ \t]*(?:BTW\b[^\r\n]*)?(?:\r\n|\r|\n)")
+
 
 class LexicalError(SyntaxError):
     """A SyntaxError with locations and completed tokens for the workbench."""
@@ -203,6 +205,18 @@ def tokenize_with_locations(source):
                 position += 1
             continue
 
+        # Ellipsis (...) line continuation: valid only at end of physical line
+        # (with optional horizontal whitespace and optional BTW comment),
+        # followed by another physical line.
+        if source.startswith("...", position):
+            cont_match = CONTINUATION_RE.match(source, position)
+            if cont_match:
+                position = cont_match.end()
+                line_number += 1
+                line_start = position
+                continue
+            fail("Line continuation '...' must appear at the end of a line before a newline (only spaces/tabs and a BTW comment may follow).")
+
         for name, regex in COMPILED_SPECS:
             match = regex.match(source, position)
             if match:
@@ -228,13 +242,15 @@ def tokenize_with_locations(source):
         fail(f"Unterminated block comment opened on line {block_start}; expected TLDR.")
     return tokens, locations
 
+
 def read_input(filepath):
     if not os.path.isfile(filepath):
         print(f"Error: '{filepath}' not found.")
         sys.exit(1)
-    
+
     with open(filepath, "r", encoding="utf-8") as f:
         return f.read()
+
 
 if __name__ == "__main__":
     source_text = read_input(INPUT_FILE)
