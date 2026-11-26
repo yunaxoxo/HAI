@@ -166,7 +166,6 @@ class InterpreterTests(unittest.TestCase):
     def test_found_yr_sets_callers_it(self):
         self.assertEqual(run("I IZ add YR 2 AN YR 3 MKAY\nVISIBLE IT\n", functions=self.ADD), ["5"])
 
-||||||| parent of c88fa2e (fix(interpreter): isolate function scopes from the caller's variables (#11))
 
     # --- scope isolation (#11) ---
     def test_function_cannot_read_outer_variable(self):
@@ -190,6 +189,7 @@ class InterpreterTests(unittest.TestCase):
               "IM IN YR l UPPIN YR n TIL BOTH SAEM n AN 3\nVISIBLE n\nIM OUTTA YR l\n"
               "IF U SAY SO\n")
         self.assertEqual(run("I IZ count YR 1 MKAY\n", functions=fn), ["start", "1", "2"])
+
 
 if __name__ == "__main__":
     unittest.main()
