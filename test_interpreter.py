@@ -167,5 +167,29 @@ class InterpreterTests(unittest.TestCase):
         self.assertEqual(run("I IZ add YR 2 AN YR 3 MKAY\nVISIBLE IT\n", functions=self.ADD), ["5"])
 
 
+    # --- scope isolation (#11) ---
+    def test_function_cannot_read_outer_variable(self):
+        fn = "HOW IZ I peek\nFOUND YR g\nIF U SAY SO\n"
+        with self.assertRaisesRegex(RuntimeError, "Undefined variable: g"):
+            run("VISIBLE I IZ peek MKAY\n", "I HAS A g ITZ 1\n", functions=fn)
+
+    def test_function_cannot_write_outer_variable(self):
+        fn = "HOW IZ I poke\ng R 2\nFOUND YR g\nIF U SAY SO\n"
+        out = run("I IZ poke MKAY\nVISIBLE g\n", "I HAS A g ITZ 1\n", functions=fn)
+        self.assertEqual(out, ["1"])  # the function made its own g; the caller's is untouched
+
+    def test_parameters_are_passed_by_value(self):
+        fn = "HOW IZ I bump YR n\nn R SUM OF n AN 1\nFOUND YR n\nIF U SAY SO\n"
+        out = run("VISIBLE I IZ bump YR x MKAY\nVISIBLE x\n", "I HAS A x ITZ 5\n", functions=fn)
+        self.assertEqual(out, ["6", "5"])
+
+    def test_control_flow_inside_function_sees_its_locals(self):
+        fn = ("HOW IZ I count YR n\n"
+              "BOTH SAEM n AN 1\nO RLY?\nYA RLY\nVISIBLE \"start\"\nOIC\n"
+              "IM IN YR l UPPIN YR n TIL BOTH SAEM n AN 3\nVISIBLE n\nIM OUTTA YR l\n"
+              "IF U SAY SO\n")
+        self.assertEqual(run("I IZ count YR 1 MKAY\n", functions=fn), ["start", "1", "2"])
+
+
 if __name__ == "__main__":
     unittest.main()
