@@ -822,9 +822,7 @@ class Parser:
     #<infinite-boolean> ::= <infinite-operator> <value-list> MKAY
     @tracks_source_span
     def parse_infinite_boolean(self) -> InfiniteBool:
-        
         op_token = self.advance()
-        values = self.parse_value_list()
         if self.infinite_bool_depth > 0:
             raise SyntaxError(
                 f"Line {op_token[2]}: '{op_token[1]}' cannot be nested inside ALL OF / ANY OF."
