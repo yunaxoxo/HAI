@@ -391,9 +391,16 @@ class Parser:
             self.skip_newlines()
 
         return Program(body=body, functions=pre_funcs)
-    #<program-body> ::= <statement-list> | empty/ future lexeme
+    #<program-body> ::= [<variable-section>] <statement-list>
     def parse_program_body(self) -> List[Any]:
-        return self.parse_statement_list()
+        statements = []
+        self.skip_newlines()
+        token = self.peek()
+        if token and (token[0] == "WAZZUP" or token[1] == "WAZZUP"):#keeps it optional incase no vars are declared
+            statements.append(self.parse_variable_section())
+            self.skip_newlines()
+        statements.extend(self.parse_statement_list())
+        return statements
     
     #<statement-list> ::= <statement> NEWLINE <statement-list> | <statement> NEWLINE | NEWLINE <statement-list>
     def parse_statement_list(self) -> List[Any]:
@@ -423,7 +430,7 @@ class Parser:
             self.skip_newlines()
         return statements
     
-    #<statement> ::= <variable-section> | <assignment> | <typecast-statement> | <print> | <input> | <conditional> | <switch> | <loop> | <function-call> | <return> | <break> | <expression> | <comment>
+    #<statement> ::= <assignment> | <typecast-statement> | <print> | <input> | <conditional> | <switch> | <loop> | <function-call> | <return> | <break> | <expression> | <comment>
     @tracks_source_span
     def parse_statement(self) -> Optional[Any]:
         #<break>  i.e GTFO is only allowed in statements is handled by the parse_break func
@@ -431,12 +438,9 @@ class Parser:
         if not token:
             return None
 
-        #variable declarations block 
-        if token[0] == "WAZZUP" or token[1] == "WAZZUP":
-            return self.parse_variable_section()
-        #standalone variable declaration
         if token[0] == "I_HAS_A":
-            return self.parse_declaration()
+            raise SyntaxError(#self explanatory
+                f"Line {token[2]}:Variable declarations ('I HAS A') are only allowed inside WAZZUP ... BUHBYE.")
         #identifiers
         if self.is_identifier_token():
             offset = 2 if token[0] in ("R", "A") else 1
