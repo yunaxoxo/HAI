@@ -2,8 +2,8 @@
 import unittest
 
 from lexer import tokenize
-from parser import (ArithExpr, Assignment, Concatenation, Declaration, FuncCall,
-                    FuncDef, InfiniteBool, Literal, Loop, PrintStmt, Program,
+from parser import (ArithExpr, Assignment, Break, CompareExpr, Concatenation, Conditional, Declaration,
+                    FuncCall, FuncDef, InfiniteBool, Literal, Loop, PrintStmt, Program, Switch,
                     VariableSection, VarRef, parse)
 
 
@@ -98,6 +98,43 @@ class ParserTests(unittest.TestCase):
         self.assertIsInstance(loop, Loop)
         self.assertEqual(loop.label, "l")
         self.assertIsInstance(loop.body[0], PrintStmt)
+
+    # --- control flow: MEBBE, switch, nesting, comma soft breaks ---
+    def test_conditional_with_mebbe_and_else(self):
+        cond = program('BOTH SAEM 1 AN 1\nO RLY?\nYA RLY\nVISIBLE "a"\nMEBBE BOTH SAEM 1 AN 2\nVISIBLE "b"\n'
+                       'NO WAI\nVISIBLE "c"\nOIC\n').body[0]
+        self.assertIsInstance(cond, Conditional)
+        self.assertEqual(len(cond.body), 1)
+        self.assertEqual(len(cond.elseifs), 1)
+        self.assertIsInstance(cond.elseifs[0]["condition"], CompareExpr)
+        self.assertEqual(len(cond.else_body), 1)
+
+    def test_switch_cases_break_and_default(self):
+        switch = program('WTF?\nOMG 1\nVISIBLE "a"\nGTFO\nOMG "x"\nVISIBLE "b"\nOMGWTF\nVISIBLE "d"\nOIC\n').body[0]
+        self.assertIsInstance(switch, Switch)
+        self.assertEqual([c["value"] for c in switch.cases], [Literal("NUMBR", 1), Literal("YARN", "x")])
+        self.assertIsInstance(switch.cases[0]["body"][-1], Break)
+        self.assertEqual(len(switch.default), 1)
+
+    def test_nested_switch_loops_and_conditional(self):
+        tree = program(
+            "WTF?\nOMG 1\nIM IN YR a UPPIN YR i TIL BOTH SAEM i AN 2\nIM IN YR b UPPIN YR j TIL BOTH SAEM j AN 2\n"
+            "BOTH SAEM i AN j\nO RLY?\nYA RLY\nVISIBLE i\nOIC\nIM OUTTA YR b\nIM OUTTA YR a\nGTFO\nOIC\n",
+            "I HAS A i ITZ 0\nI HAS A j ITZ 0\n")
+        outer = tree.body[1].cases[0]["body"][0]
+        self.assertIsInstance(outer, Loop)
+        self.assertIsInstance(outer.body[0], Loop)
+        self.assertIsInstance(outer.body[0].body[0], Conditional)
+
+    def test_comma_is_a_soft_statement_break(self):
+        self.assertEqual(program('VISIBLE "a", VISIBLE "b"\n').body,
+                         program('VISIBLE "a"\nVISIBLE "b"\n').body)
+
+    def test_unclosed_blocks_are_rejected(self):
+        for body in ("BOTH SAEM 1 AN 1\nO RLY?\nYA RLY\nVISIBLE 1\n", "WTF?\nOMG 1\nVISIBLE 1\n",
+                     "IM IN YR l UPPIN YR i TIL BOTH SAEM i AN 1\nVISIBLE i\n"):
+            with self.subTest(body=body), self.assertRaises(SyntaxError):
+                parse(tokenize(f"HAI\nWAZZUP\nI HAS A i ITZ 0\nBUHBYE\n{body}KTHXBYE\n"))
 
     # --- comments & line continuation ---
     def test_comments_are_ignored(self):
