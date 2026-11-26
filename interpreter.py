@@ -99,7 +99,7 @@ class Interpreter:
         if value is False:
             return "FAIL"
         if isinstance(value, float):
-            text = repr(value)
+            text = repr(round(value, 9))  # drop binary noise first: 4 - 3.14 is 0.86, not 0.85
             if "e" in text or "n" in text:  # exponent form, inf, nan: leave as Python prints them
                 return text
             # Truncate (not round) to two decimals, keeping at least one: 3.14159 -> 3.14
@@ -240,18 +240,16 @@ class Interpreter:
                     self.block(node.else_body)
         elif isinstance(node, Switch):
             target = self.get("IT")
-            for case in node.cases:
-                if target == self.evaluate(case["value"]):
-                    try:
-                        self.block(case["body"])
-                    except BreakSignal:
-                        pass
-                    break
-            else:
-                try:
+            start = next((i for i, case in enumerate(node.cases)
+                          if target == self.evaluate(case["value"])), None)
+            try:
+                if start is None:
                     self.block(node.default)
-                except BreakSignal:
-                    pass
+                else:  # a matching case runs, then falls through to the next cases until GTFO or OIC
+                    for case in node.cases[start:]:
+                        self.block(case["body"])
+            except BreakSignal:
+                pass
         elif isinstance(node, Loop):
             count = 0
             while True:
