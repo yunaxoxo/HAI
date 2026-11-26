@@ -149,6 +149,11 @@ class InterpreterTests(unittest.TestCase):
         body = "IM IN YR l UPPIN YR i TIL BOTH SAEM i AN 3\nVISIBLE i\nIM OUTTA YR l\n"
         self.assertEqual(run(body, "I HAS A i ITZ 0\n"), ["0", "1", "2"])
 
+    def test_loop_variable_must_be_declared_even_if_the_body_never_runs(self):
+        body = "IM IN YR l UPPIN YR ghost TIL BOTH SAEM 1 AN 1\nIM OUTTA YR l\n"
+        with self.assertRaisesRegex(RuntimeError, "Undefined variable: ghost"):
+            run(body)
+
     def test_loop_break(self):
         body = ("IM IN YR l UPPIN YR i TIL BOTH SAEM i AN 10\n"
                 "BOTH SAEM i AN 2\nO RLY?\nYA RLY\nGTFO\nOIC\nVISIBLE i\nIM OUTTA YR l\n")

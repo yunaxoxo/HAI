@@ -251,6 +251,8 @@ class Interpreter:
             except BreakSignal:
                 pass
         elif isinstance(node, Loop):
+            if node.op:
+                self.get(node.op["var"])  # the UPPIN/NERFIN variable must already be declared
             count = 0
             while True:
                 if node.condition:
