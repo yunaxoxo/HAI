@@ -49,9 +49,13 @@ class InterpreterTests(unittest.TestCase):
             with self.subTest(expr=expr), self.assertRaises(RuntimeError):
                 run(f"VISIBLE {expr}\n")
 
-    @unittest.skip("#10: QUOSHUNT OF two NUMBRs should return a NUMBR")
     def test_quoshunt_of_numbrs_is_integer_division(self):
-        self.assertEqual(run("VISIBLE QUOSHUNT OF 7 AN 2\n"), ["3"])
+        for expr, expected in [("4 AN 5", "0"), ("5 AN 2", "2"), ("-7 AN 2", "-3"), ("7 AN -2", "-3")]:
+            with self.subTest(expr=expr):
+                self.assertEqual(run(f"VISIBLE QUOSHUNT OF {expr}\n"), [expected])
+
+    def test_quoshunt_with_a_numbar_is_float_division(self):
+        self.assertEqual(run("VISIBLE QUOSHUNT OF 4.0 AN 5.0\nVISIBLE QUOSHUNT OF 7 AN 2.0\n"), ["0.8", "3.5"])
 
     # --- variables ---
     def test_declare_assign_and_read(self):
