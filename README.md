@@ -28,6 +28,17 @@ KTHXBYE
 
 Select **Run** to print `8`, **Tokenize** to inspect lexical tokens, or **Analyze** to explore the AST.
 
+On Windows, use the same command (`python -B app.py`, or `py -3 -B app.py`). The workbench runs entirely offline: CodeMirror and the icons are bundled, so no internet connection or `pip install` is needed.
+
+## Language behavior notes
+
+- **Integer division:** `QUOSHUNT OF` on two `NUMBR`s returns a `NUMBR` truncated toward zero (`QUOSHUNT OF -7 AN 2` is `-3`); if either operand is a `NUMBAR` the result is a `NUMBAR`.
+- **`NOOB`:** `VISIBLE` prints an uninitialized variable as `NOOB`. A `NOOB` can be cast to `TROOF` implicitly, but using it as a number raises an error; explicit `MAEK` / `IS NOW A` casts give `0`, `0.0` or `FAIL`.
+- **Function calls:** `I IZ ... MKAY` is the documented form, but the closing `MKAY` is optional so the official `10_functions.lol` runs as written. Functions only see their own parameters and locals, and `GTFO` or reaching `IF U SAY SO` returns `NOOB`.
+- **Switch-case:** a matching `OMG` runs and falls through the following cases until `GTFO`; the `OMGWTF` default runs only when no case matches.
+- **`NUMBAR` to `YARN`:** values are truncated (not rounded) to two decimal places.
+- **Strings:** `YARN` literals support the escapes `:)` (newline), `:>` (tab), `:o` (bell), `:"` (quote) and `::` (colon).
+
 ## Features
 
 - **Editor:** LOLCODE highlighting, built-in examples, and opening or downloading `.lol` files.
