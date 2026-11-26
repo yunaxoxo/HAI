@@ -480,6 +480,13 @@ button:disabled {
 .CodeMirror.cm-s-default .cm-string {
   color: #cdb99a;
 }
+.CodeMirror.cm-s-default .cm-string-2 {
+  color: #e2c27a;
+  font-weight: 600;
+}
+.CodeMirror.cm-s-default .cm-meta {
+  color: #9fb4c4;
+}
 .CodeMirror.cm-s-default .cm-comment {
   color: #838985;
   font-style: italic;
@@ -1721,7 +1728,7 @@ button:disabled {
   height: 100%;
   background: #c3c5bf;
   transform-origin: left;
-  animation: boot-fill 1650ms linear both;
+  animation: boot-fill 750ms linear both;
 }
 @keyframes boot-fill {
   from {
@@ -2237,6 +2244,16 @@ body.boot-error .boot-status {
   .doc-new {
     min-width: 44px;
     padding-inline: 0;
+  }
+  .mobile-view,
+  .inspector-tab,
+  .console-tab,
+  .mode-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .tree-node {
+    min-height: 44px;
   }
   .dialog-file-field input {
     height: 44px;

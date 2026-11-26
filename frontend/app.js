@@ -27,9 +27,39 @@ const operators = new Set(['SUM OF','DIFF OF','PRODUKT OF','QUOSHUNT OF','MOD OF
 const types = new Set(['NUMBR','NUMBAR','YARN','TROOF','NOOB']);
 const bools = new Set(['WIN','FAIL']);
 
+const YARN_ESCAPES = ')>o:';
+// Mirrors the lexer: can the rest of the line still be read with every string closed?
+// Used to decide whether `:"` is an escaped quote or a literal colon followed by the closing quote.
+function lineBalances(line, i, inside) {
+  while (i < line.length) {
+    const ch = line[i];
+    if (inside && ch === ':') {
+      const next = line[i + 1] || '';
+      if (next === '"') return lineBalances(line, i + 2, true) || lineBalances(line, i + 1, true);
+      i += next && YARN_ESCAPES.includes(next) ? 2 : 1;
+      continue;
+    }
+    if (ch === '"') inside = !inside;
+    else if (!inside && /^BTW\b/.test(line.slice(i)) && (i === 0 || !/\w/.test(line[i - 1]))) return true;
+    i++;
+  }
+  return !inside;
+}
+function yarnToken(stream, state) {
+  if (stream.peek() === '"') { stream.next(); state.inString = false; return 'string'; }
+  if (stream.peek() === ':') {
+    const next = stream.string[stream.pos + 1];
+    if (next === '"' && lineBalances(stream.string, stream.pos + 2, true)) { stream.pos += 2; return 'string-2'; }
+    if (next && next !== '"' && YARN_ESCAPES.includes(next)) { stream.pos += 2; return 'string-2'; }
+    stream.next(); return 'string';
+  }
+  stream.eatWhile(/[^":]/); return 'string';
+}
 CodeMirror.defineMode('lolcode', () => ({
-  startState: () => ({ blockComment: false }),
+  startState: () => ({ blockComment: false, inString: false }),
   token(stream, state) {
+    if (stream.sol() && !state.blockComment) state.inString = false;  // strings never span lines
+    if (state.inString) return yarnToken(stream, state);
     if (state.blockComment) {
       if (stream.match(/TLDR\b/)) { state.blockComment = false; return 'comment'; }
       stream.skipToEnd(); return 'comment';
@@ -37,11 +67,8 @@ CodeMirror.defineMode('lolcode', () => ({
     if (stream.eatSpace()) return null;
     if (stream.match(/OBTW\b/)) { state.blockComment = true; stream.skipToEnd(); return 'comment'; }
     if (stream.match(/BTW\b/)) { stream.skipToEnd(); return 'comment'; }
-    if (stream.peek() === '"') {
-      stream.next(); let escaped = false;
-      while (!stream.eol()) { const c = stream.next(); if (c === '"' && !escaped) break; escaped = c === ':' && !escaped; }
-      return 'string';
-    }
+    if (stream.peek() === '"') { stream.next(); state.inString = true; return 'string'; }
+    if (stream.match('...')) return 'meta';  // line continuation
     if (stream.match(/-?\d+(?:\.\d+)?(?![A-Za-z_])/)) return 'number';
     const match = stream.match(regexp);
     if (match) {
@@ -1325,7 +1352,7 @@ const loading = $('#boot-screen');
 const launchEditor = $('#launch-editor');
 const appShell = $('#app-shell');
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-const minimumBootMs = reducedMotion ? 180 : 1650;
+const minimumBootMs = reducedMotion ? 180 : 750;
 const bootStart = Number.isFinite(window.__haiBootStart) ? window.__haiBootStart : performance.now();
 const remainingBootMs = Math.max(0, minimumBootMs - (performance.now() - bootStart));
 const launchedInThisTab = (() => {
