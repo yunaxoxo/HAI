@@ -526,20 +526,16 @@ class Parser:
     def parse_print(self) -> PrintStmt:
         self.consume("VISIBLE")
         values = self.parse_print_list()
-    #allow either an ! or + to suppress the newline
-        suppress_newline = bool(self.match("EXCLAMATION", "PLUS"))
+        suppress_newline = bool(self.match("EXCLAMATION"))
+        if self.can_start_value():
+            token = self.peek()
+            raise SyntaxError(f"Line {token[2]}: Expected '+' between VISIBLE operands, but found '{token[1]}' ({token[0]})")
         return PrintStmt(values=values, suppress_newline=suppress_newline)
-    #<print-list> ::= <value> | <value> <print-list>
+    #<print-list> ::= <value> | <value> + <print-list>
     def parse_print_list(self) -> List[Any]:
         values = [self.parse_value()]
-        while True:
-            #get + separator if it exists
-            self.match("PLUS")
-            #if there's another value parse it, else we're done
-            if self.can_start_value():
-                values.append(self.parse_value())
-            else:
-                break
+        while self.match("PLUS"):
+            values.append(self.parse_value())
         return values
     #<input> ::= GIMMEH IDENTIFIER
     @tracks_source_span
