@@ -127,6 +127,17 @@ class InterpreterTests(unittest.TestCase):
         fn = "HOW IZ I quiet\nGTFO\nIF U SAY SO\n"
         self.assertEqual(run("VISIBLE I IZ quiet MKAY\n", functions=fn), ["NOOB"])
 
+    def test_gtfo_after_output_returns_noob_not_stale_it(self):
+        fn = 'HOW IZ I shout\nVISIBLE "hey"\nGTFO\nIF U SAY SO\n'
+        self.assertEqual(run("I IZ shout MKAY\nVISIBLE IT\n", functions=fn), ["hey", "NOOB"])
+
+    def test_falling_off_function_end_returns_noob(self):
+        fn = 'HOW IZ I shout\nVISIBLE "hey"\nIF U SAY SO\n'
+        self.assertEqual(run("I IZ shout MKAY\nVISIBLE IT\n", functions=fn), ["hey", "NOOB"])
+
+    def test_found_yr_sets_callers_it(self):
+        self.assertEqual(run("I IZ add YR 2 AN YR 3 MKAY\nVISIBLE IT\n", functions=self.ADD), ["5"])
+
 
 if __name__ == "__main__":
     unittest.main()
