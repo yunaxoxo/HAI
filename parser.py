@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from functools import wraps
 from pprint import pprint
 from typing import Any, List, Optional
-from lexer import tokenize, read_input
+from lexer import decode_yarn, tokenize, read_input
 
 # --- Operator and Keyword Sets ---
 ARITHMETIC_OPERATORS = {
@@ -757,7 +757,7 @@ class Parser:
             #strip surrounding quotation marks from literals
             if len(text) >= 2 and text.startswith('"') and text.endswith('"'):
                 text = text[1:-1]
-            return Literal(kind="YARN", value=text)
+            return Literal(kind="YARN", value=decode_yarn(text))
         if token[0] == "TROOF":
             self.advance()
             return Literal(kind="TROOF", value=(token[1] == "WIN"))
