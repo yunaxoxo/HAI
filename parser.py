@@ -382,6 +382,7 @@ class Parser:
             self.skip_newlines()
 
         self.consume("HAI")
+        self.match("NUMBAR", "NUMBR")  # optional version number, e.g. HAI 1.2
         self.skip_newlines()
         body = self.parse_program_body()
         self.consume("KTHXBYE")
