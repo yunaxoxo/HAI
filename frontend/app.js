@@ -977,7 +977,7 @@ function renderSymbols() {
   if(!state.symbols.length){surface.append(el('div','table-empty','Run your program to see each variable and its value.'));return;}
   const table=el('table','data-table');const head=el('thead');const tr=el('tr');['NAME','TYPE','CURRENT VALUE'].forEach(h=>tr.append(el('th','',h)));head.append(tr);table.append(head);
   const body=el('tbody');
-  state.symbols.forEach(s=>{const row=el('tr');row.append(el('td','',s.name),el('td','symbol-type',s.type),el('td','',s.value));body.append(row);});
+  state.symbols.forEach(s=>{const row=el('tr');const name=el('td','',s.name);if(s.name==='IT')name.title='IT holds the result of the last expression statement.';row.append(name,el('td','symbol-type',s.type),el('td','',s.value));body.append(row);});
   table.append(body);surface.append(table);
   $('#symbol-caption').textContent='Values from the latest run';
 }

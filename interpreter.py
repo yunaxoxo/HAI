@@ -245,7 +245,6 @@ class Interpreter:
                 self.set(node.name, self.input(f"{node.name}? "))
             except EOFError:
                 raise RuntimeError(f"No input left for GIMMEH {node.name}.")
-            self.set("IT", self.get(node.name))
         elif isinstance(node, Conditional):
             condition = self.get("IT") if node.condition is None else self.evaluate(node.condition)
             if self.truth(condition):

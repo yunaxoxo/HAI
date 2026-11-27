@@ -112,6 +112,14 @@ class InterpreterTests(unittest.TestCase):
             with self.subTest(bad=bad), self.assertRaises(RuntimeError):
                 run(f'VISIBLE SUM OF "{bad}" AN 1\n')
 
+    def test_gimmeh_does_not_change_it(self):
+        body = "SUM OF 1 AN 1\nGIMMEH s\nVISIBLE IT\n"
+        self.assertEqual(run(body, "I HAS A s\n", inputs=["hello"]), ["2"])
+
+    def test_missing_mkay_error_names_the_end_of_the_line(self):
+        with self.assertRaisesRegex(SyntaxError, "but found the end of the line"):
+            run("VISIBLE ALL OF WIN AN WIN\n")
+
     def test_it_holds_last_expression(self):
         self.assertEqual(run("SUM OF 2 AN 3\nVISIBLE IT\n"), ["5"])
 
