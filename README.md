@@ -33,9 +33,13 @@ On Windows, use the same command (`python -B app.py`, or `py -3 -B app.py`). The
 ## Language behavior notes
 
 - **Integer division:** `QUOSHUNT OF` on two `NUMBR`s returns a `NUMBR` truncated toward zero (`QUOSHUNT OF -7 AN 2` is `-3`); if either operand is a `NUMBAR` the result is a `NUMBAR`.
-- **`NOOB`:** `VISIBLE` prints an uninitialized variable as `NOOB`. A `NOOB` can be cast to `TROOF` implicitly, but using it as a number raises an error; explicit `MAEK` / `IS NOW A` casts give `0`, `0.0` or `FAIL`.
-- **Function calls:** `I IZ ... MKAY` is the documented form, but the closing `MKAY` is optional so the official `10_functions.lol` runs as written. Functions only see their own parameters and locals, and `GTFO` or reaching `IF U SAY SO` returns `NOOB`.
+- **`NOOB`:** `VISIBLE` and `SMOOSH` print an uninitialized variable as `NOOB` (the official `10_functions.lol` relies on this for `GTFO` functions). A `NOOB` can be cast to `TROOF` implicitly, but using it as a number raises an error; explicit `MAEK` / `IS NOW A` casts give `0`, `0.0`, `FAIL` or the empty `YARN`.
+- **Function calls:** `I IZ ... MKAY` is the documented form. The closing `MKAY` is optional for a flat call so the official `10_functions.lol` runs as written, but a call nested as a non-final argument needs its own `MKAY` (`I IZ f YR I IZ g YR 4 MKAY AN YR 1 MKAY`). Functions only see their own parameters and locals, and `GTFO` or reaching `IF U SAY SO` returns `NOOB`.
+- **Declarations:** every variable must be declared once in `WAZZUP`; assigning an undeclared name, declaring a name twice, or defining a function twice is an error. `I HAS A t ITZ NUMBR` stores the type name.
+- **`IT`:** only expression statements (including a lone literal or variable, and `GIMMEH`) set `IT`; operands of `VISIBLE`, assignments, declarations, loop conditions and case labels do not.
+- **Comparison:** there is no implicit casting, so `5` and `5.0` (or `"5"`) are different.
 - **Switch-case:** a matching `OMG` runs and falls through the following cases until `GTFO`; the `OMGWTF` default runs only when no case matches.
+- **Input:** `GIMMEH` shows a `name? ` prompt, and reading past the end of the input is a runtime error. One statement per line is expected, but a `,` or a second statement on a line is tolerated.
 - **`NUMBAR` to `YARN`:** values are truncated (not rounded) to two decimal places.
 - **Strings:** `YARN` literals support the escapes `:)` (newline), `:>` (tab), `:o` (bell), `:"` (quote) and `::` (colon).
 

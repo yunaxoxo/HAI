@@ -66,6 +66,46 @@ class InterpreterTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             run("VISIBLE nope\n")
 
+    def test_redeclaring_a_variable_is_an_error(self):
+        with self.assertRaises(RuntimeError):
+            run("", "I HAS A x\nI HAS A x\n")
+
+    def test_defining_a_function_twice_is_an_error(self):
+        f = "HOW IZ I f\nIF U SAY SO\n"
+        with self.assertRaises(RuntimeError):
+            run("", functions=f + f)
+
+    def test_lone_literal_is_an_expression_statement(self):
+        self.assertEqual(run('5\nVISIBLE IT\n'), ["5"])
+
+    def test_assigning_an_undeclared_variable_is_an_error(self):
+        with self.assertRaisesRegex(RuntimeError, "Undefined variable: zz"):
+            run("zz R 3\n")
+
+    def test_gimmeh_without_input_is_a_runtime_error(self):
+        def no_input(prompt=""):
+            raise EOFError
+        with self.assertRaisesRegex(RuntimeError, "No input left"):
+            Interpreter(input_func=no_input, output_func=lambda *a, **k: None).run_source(
+                "HAI\nWAZZUP\nI HAS A s\nBUHBYE\nGIMMEH s\nKTHXBYE\n")
+
+    def test_explicit_noob_to_yarn_is_empty(self):
+        self.assertEqual(run('VISIBLE "[" + MAEK z YARN + "]"\n', "I HAS A z\n"), ["[]"])
+
+    def test_only_expression_statements_change_it(self):
+        body = 'SUM OF 1 AN 1\nn R 9\nVISIBLE "x"\nVISIBLE n\nVISIBLE IT\n'
+        self.assertEqual(run(body, "I HAS A n ITZ 1\n"), ["x", "9", "2"])
+
+    def test_switch_case_labels_do_not_change_it(self):
+        body = 'n\nWTF?\nOMG 7\nVISIBLE "seven"\nOMG 1\nVISIBLE "one"\nGTFO\nOIC\nVISIBLE IT\n'
+        self.assertEqual(run(body, "I HAS A n ITZ 1\n"), ["one", "1"])
+
+    def test_nested_call_needs_mkay_before_a_later_argument(self):
+        fns = ("HOW IZ I f YR a AN YR b\nFOUND YR SUM OF a AN b\nIF U SAY SO\n"
+               "HOW IZ I g YR a\nFOUND YR PRODUKT OF a AN 2\nIF U SAY SO\n")
+        self.assertEqual(run("VISIBLE I IZ f YR I IZ g YR 4 MKAY AN YR 1 MKAY\n", functions=fns), ["9"])
+        self.assertEqual(run("VISIBLE I IZ f YR 1 AN YR I IZ g YR 4\n", functions=fns), ["9"])
+
     def test_it_holds_last_expression(self):
         self.assertEqual(run("SUM OF 2 AN 3\nVISIBLE IT\n"), ["5"])
 
@@ -189,8 +229,8 @@ class InterpreterTests(unittest.TestCase):
 
     def test_function_cannot_write_outer_variable(self):
         fn = "HOW IZ I poke\ng R 2\nFOUND YR g\nIF U SAY SO\n"
-        out = run("I IZ poke MKAY\nVISIBLE g\n", "I HAS A g ITZ 1\n", functions=fn)
-        self.assertEqual(out, ["1"])  # the function made its own g; the caller's is untouched
+        with self.assertRaisesRegex(RuntimeError, "Undefined variable: g"):
+            run("I IZ poke MKAY\nVISIBLE g\n", "I HAS A g ITZ 1\n", functions=fn)
 
     def test_parameters_are_passed_by_value(self):
         fn = "HOW IZ I bump YR n\nn R SUM OF n AN 1\nFOUND YR n\nIF U SAY SO\n"

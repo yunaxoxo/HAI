@@ -476,6 +476,9 @@ class Parser:
         #comments
         if token[0] in ("BTW", "OBTW") or token[1] in ("BTW", "OBTW"):
             return self.parse_comment()
+        #a lone literal is an expression statement too (it just sets IT)
+        if token[0] in ("NUMBR", "NUMBAR", "YARN", "TROOF"):
+            return self.parse_value()
         #expression statements evaluated for side effects
         if token[0] in EXPRESSION_STARTERS:
             return self.parse_expression()

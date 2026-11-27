@@ -68,6 +68,14 @@ class Interpreter:
     def set(self, name, value):
         self.scopes[-1][name] = value
 
+    # Only expression statements may change IT (spec p.5), so operands of VISIBLE, assignments,
+    # declarations, loop conditions and case labels are evaluated without leaving a trace in IT.
+    def quietly(self, node):
+        saved = self.get("IT")
+        value = self.evaluate(node)
+        self.set("IT", saved)
+        return value
+
     # This converts a value to a Boolean
     def truth(self, value):
         if value is None:
@@ -119,7 +127,7 @@ class Interpreter:
         if target == "NUMBAR":
             return 0.0 if value is None else float(self.number(value))
         if target == "YARN":
-            return self.display(value)
+            return "" if value is None else self.display(value)  # explicit NOOB -> empty (spec p.4)
         if target == "TYPE":
             if value is None:
                 return "NOOB"
@@ -205,27 +213,37 @@ class Interpreter:
             return
 
         if isinstance(node, Program):
-            self.functions = {fn.name: fn for fn in node.functions}
+            self.functions = {}
+            for fn in node.functions:
+                if fn.name in self.functions:
+                    raise RuntimeError(f"Function '{fn.name}' is already defined.")
+                self.functions[fn.name] = fn
             self.block(node.body)
         elif isinstance(node, VariableSection):
             self.block(node.declarations)
         elif isinstance(node, Declaration):
-            value = self.evaluate(node.value) if node.value is not None else None
+            if node.name in self.scopes[-1]:
+                raise RuntimeError(f"Variable '{node.name}' is already declared.")
+            value = self.quietly(node.value) if node.value is not None else None
             self.scopes[-1][node.name] = value
         elif isinstance(node, Assignment):
-            self.set(node.name, self.evaluate(node.value))
+            self.get(node.name)  # only declared variables can be assigned (spec p.2)
+            self.set(node.name, self.quietly(node.value))
         elif isinstance(node, TypecastStmt):
             self.set(node.name, self.cast(self.get(node.name), node.cast_type))
             self.set("IT", self.get(node.name))
         elif isinstance(node, PrintStmt):
-            text = "".join(self.display(self.evaluate(v)) for v in node.values)
+            text = "".join(self.display(self.quietly(v)) for v in node.values)
             if node.suppress_newline:
                 self.output(text, end="")
             else:
                 self.output(text)
         elif isinstance(node, InputStmt):
             self.get(node.name)  # GIMMEH only fills a declared variable
-            self.set(node.name, self.input(f"{node.name}? "))
+            try:
+                self.set(node.name, self.input(f"{node.name}? "))
+            except EOFError:
+                raise RuntimeError(f"No input left for GIMMEH {node.name}.")
             self.set("IT", self.get(node.name))
         elif isinstance(node, Conditional):
             condition = self.get("IT") if node.condition is None else self.evaluate(node.condition)
@@ -233,7 +251,7 @@ class Interpreter:
                 self.block(node.body)
             else:
                 for clause in node.elseifs:
-                    if self.truth(self.evaluate(clause["condition"])):
+                    if self.truth(self.quietly(clause["condition"])):
                         self.block(clause["body"])
                         break
                 else:
@@ -241,7 +259,7 @@ class Interpreter:
         elif isinstance(node, Switch):
             target = self.get("IT")
             start = next((i for i, case in enumerate(node.cases)
-                          if target == self.evaluate(case["value"])), None)
+                          if target == self.quietly(case["value"])), None)
             try:
                 if start is None:
                     self.block(node.default)
@@ -256,7 +274,7 @@ class Interpreter:
             count = 0
             while True:
                 if node.condition:
-                    condition = self.truth(self.evaluate(node.condition["value"]))
+                    condition = self.truth(self.quietly(node.condition["value"]))
                     if node.condition["type"] == "TIL" and condition:
                         break
                     if node.condition["type"] == "WILE" and not condition:
