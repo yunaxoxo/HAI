@@ -1307,6 +1307,32 @@ divider.addEventListener('keydown',e=>{
   const share=e.key==='Home'?30:e.key==='End'?70:Math.max(30,Math.min(70,amount));
   workbench.style.setProperty('--source-share',`${share}%`);divider.setAttribute('aria-valuenow',String(share));editor.refresh();
 });
+// Generic splitter: drag, arrow keys (Home/End = limits) and double-click reset.
+function splitter(handle,{axis,min,max,reset,read,apply,keys}){
+  const set=v=>{v=Math.max(min,Math.min(max,Math.round(v)));apply(v);handle.setAttribute('aria-valuenow',String(v));editor.refresh();};
+  handle.addEventListener('pointerdown',e=>{if(window.matchMedia('(max-width:740px)').matches)return;e.preventDefault();handle.setPointerCapture(e.pointerId);handle.classList.add('dragging');document.body.classList.add('is-resizing');});
+  handle.addEventListener('pointermove',e=>{if(handle.hasPointerCapture(e.pointerId))set(read(axis==='x'?e.clientX:e.clientY));});
+  const end=e=>{handle.classList.remove('dragging');document.body.classList.remove('is-resizing');if(handle.hasPointerCapture(e.pointerId))handle.releasePointerCapture(e.pointerId);};
+  handle.addEventListener('pointerup',end);handle.addEventListener('pointercancel',end);
+  handle.addEventListener('dblclick',()=>set(reset));
+  handle.addEventListener('keydown',e=>{
+    const cur=Number(handle.getAttribute('aria-valuenow')),step=e.shiftKey?8:2;
+    const next=e.key==='Home'?min:e.key==='End'?max:e.key===keys[0]?cur+step:e.key===keys[1]?cur-step:null;
+    if(next===null)return;e.preventDefault();set(next);
+  });
+}
+// Console height: share of the workbench, handle sits above the console so Up grows it.
+splitter($('#console-resizer'),{axis:'y',min:12,max:70,reset:30,keys:['ArrowUp','ArrowDown'],
+  read:y=>{const r=workbench.getBoundingClientRect();return (r.bottom-y)/r.height*100;},
+  apply:v=>workbench.style.setProperty('--console-share',`${v}%`)});
+// Node details: share of the inspector pane height.
+const detailsPane=$('#inspector-pane');
+splitter($('#details-resizer'),{axis:'y',min:15,max:70,reset:27,keys:['ArrowUp','ArrowDown'],
+  read:y=>{const r=detailsPane.getBoundingClientRect();return (r.bottom-y)/r.height*100;},
+  apply:v=>detailsPane.style.setProperty('--details-height',`${v}%`)});
+divider.addEventListener('dblclick',()=>{if(workbench.classList.contains('expanded'))return;workbench.style.setProperty('--source-share','64%');divider.setAttribute('aria-valuenow','64');editor.refresh();});
+divider.addEventListener('pointerup',e=>{if(divider.hasPointerCapture(e.pointerId))divider.releasePointerCapture(e.pointerId);document.body.classList.remove('is-resizing');divider.classList.remove('dragging');});
+divider.addEventListener('pointerdown',()=>{document.body.classList.add('is-resizing');divider.classList.add('dragging');});
 window.addEventListener('resize',()=>editor.refresh());
 window.addEventListener('beforeunload',e=>{if(state.dirty||state.documents.some(d=>d.dirty)){e.preventDefault();e.returnValue='';}});
 document.addEventListener('keydown', e => {

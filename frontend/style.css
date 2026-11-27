@@ -255,7 +255,7 @@ button:disabled {
 .example-group > .btn {
   padding: 0 10px;
   margin-left: 4px;
-  font-size: 11px;
+  font-size: 12px;
 }
 .sample-menu {
   position: absolute;
@@ -314,7 +314,7 @@ button:disabled {
   min-height: 0;
   overflow: hidden;
   grid-template-columns: minmax(0, var(--source-share)) 3px minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1.55fr) minmax(155px, 0.85fr);
+  grid-template-rows: minmax(0, 1fr) 3px minmax(96px, var(--console-share, 30%));
 }
 .workbench.expanded {
   grid-template-columns: minmax(0, 38%) 3px minmax(0, 1fr);
@@ -330,7 +330,7 @@ button:disabled {
 }
 .source-pane {
   grid-column: 1;
-  grid-row: 1 / 3;
+  grid-row: 1 / 4;
   background: var(--source);
 }
 .inspector-pane {
@@ -340,15 +340,43 @@ button:disabled {
 }
 .console-pane {
   grid-column: 3;
-  grid-row: 2;
+  grid-row: 3;
   background: var(--console);
   border-top: 1px solid var(--border);
 }
 .pane-resizer {
   grid-column: 2;
-  grid-row: 1 / 3;
+  grid-row: 1 / 4;
   background: #292b2e;
   cursor: col-resize;
+  touch-action: none;
+}
+.console-resizer {
+  grid-column: 3;
+  grid-row: 2;
+  cursor: row-resize;
+}
+body.is-resizing {
+  user-select: none;
+}
+body.is-resizing .CodeMirror,
+body.is-resizing iframe {
+  pointer-events: none;
+}
+.details-resizer:has(+ .node-details[hidden]) {
+  display: none;
+}
+.details-resizer {
+  flex: 0 0 3px;
+  background: #292b2e;
+  cursor: row-resize;
+  touch-action: none;
+}
+.details-resizer:hover,
+.details-resizer:focus-visible,
+.pane-resizer.dragging,
+.details-resizer.dragging {
+  background: #424447;
 }
 .pane-resizer:hover,
 .pane-resizer:focus-visible {
@@ -381,7 +409,7 @@ button:disabled {
   color: #d2d2cf;
 }
 .dirty-indicator {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--warning);
 }
 .analysis-stamp {
@@ -395,7 +423,7 @@ button:disabled {
   border: 0;
   background: transparent;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 .text-action:hover {
   color: var(--text);
@@ -570,7 +598,7 @@ button:disabled {
 .console-tab span {
   margin-left: 6px;
   color: #92938f;
-  font: 10px var(--mono);
+  font: 11px var(--mono);
 }
 .inspector-content {
   display: flex;
@@ -594,7 +622,7 @@ button:disabled {
   border-bottom: 1px solid transparent;
   background: transparent;
   color: #959691;
-  font-size: 11px;
+  font-size: 12px;
 }
 .mode-btn:hover {
   color: #dddcd8;
@@ -608,7 +636,7 @@ button:disabled {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--dim);
-  font: 10px var(--mono);
+  font: 11px var(--mono);
 }
 .mode-hint:empty {
   display: none;
@@ -640,21 +668,21 @@ button:disabled {
   outline: 0;
   background: transparent;
   color: var(--text);
-  font: 11px var(--mono);
+  font: 12px var(--mono);
 }
 .ast-find-field input::placeholder {
   color: #999a96;
 }
 .ast-find-count {
   color: #999a96;
-  font: 10px var(--mono);
+  font: 11px var(--mono);
 }
 .ast-fold {
   padding: 4px 0;
   border: 0;
   background: transparent;
   color: #a6a7a4;
-  font-size: 11px;
+  font-size: 12px;
 }
 .ast-fold:hover {
   color: #fff;
@@ -672,7 +700,7 @@ button:disabled {
   border-radius: 3px;
   background: transparent;
   color: #bbbbba;
-  font: 11px var(--mono);
+  font: 12px var(--mono);
 }
 .graph-controls button:hover {
   border-color: #767976;
@@ -779,7 +807,7 @@ button:disabled {
 }
 .node-type {
   flex: 0 0 auto;
-  font: 580 11px var(--mono);
+  font: 580 12px var(--mono);
   white-space: nowrap;
 }
 .node-property {
@@ -787,14 +815,15 @@ button:disabled {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: #9fa3a0;
-  font: 10px var(--mono);
+  font: 11px var(--mono);
 }
 .tree-node.selected .node-property {
   color: #c3c8c4;
 }
 .node-details {
   flex: 0 0 auto;
-  max-height: clamp(154px, 27vh, 286px);
+  height: var(--details-height, auto);
+  max-height: var(--details-height, clamp(154px, 27vh, 286px));
   overflow: auto;
   padding: 14px 17px;
   border-top: 1px solid var(--border);
@@ -814,7 +843,7 @@ button:disabled {
 }
 .details-kicker {
   color: #a2a3a0;
-  font: 10px var(--mono);
+  font: 11px var(--mono);
 }
 .details-heading strong {
   color: #e7e7e4;
@@ -825,7 +854,7 @@ button:disabled {
   border: 0;
   background: transparent;
   color: #bfcac8;
-  font-size: 11px;
+  font-size: 12px;
 }
 .details-link:hover {
   color: #fff;
@@ -836,7 +865,7 @@ button:disabled {
 .details-ancestors {
   margin-top: 8px;
   color: #92938f;
-  font: 10px/1.5 var(--mono);
+  font: 11px/1.5 var(--mono);
   overflow-wrap: anywhere;
 }
 .details-ancestors {
@@ -871,7 +900,7 @@ button:disabled {
   padding: 6px 0;
   border-top: 1px solid #303234;
   color: #d2d3d0;
-  font: 11px/1.5 var(--mono);
+  font: 12px/1.5 var(--mono);
   overflow-wrap: anywhere;
 }
 .details-item dt {
@@ -966,7 +995,7 @@ button:disabled {
 .node-field {
   flex: 0 0 auto;
   color: #8e918d;
-  font: 10px var(--mono);
+  font: 11px var(--mono);
 }
 .node-field::after {
   content: " ›";
@@ -1054,7 +1083,7 @@ button:disabled {
   display: block;
   margin-top: 4px;
   color: #aaa9a5;
-  font: 10px var(--mono);
+  font: 11px var(--mono);
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -1066,7 +1095,7 @@ button:disabled {
   padding: 7px;
   background: #303132;
   color: var(--warning);
-  font: 11px var(--mono);
+  font: 12px var(--mono);
 }
 
 /* Tokens, symbols and diagnostics */
@@ -1079,7 +1108,7 @@ button:disabled {
   padding: 0 16px;
   border-bottom: 1px solid var(--border-soft);
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 .search-wrapper,
 .filter-toolbar .search-wrapper {
@@ -1096,7 +1125,7 @@ button:disabled {
   border-radius: 3px;
   background: #222426;
   color: var(--text);
-  font-size: 11px;
+  font-size: 12px;
 }
 .search-wrapper input::placeholder {
   color: #979995;
@@ -1124,7 +1153,7 @@ button:disabled {
   background: #242527;
   color: #aaa9a6;
   text-align: left;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 520;
 }
 .data-table td {
@@ -1189,7 +1218,7 @@ button:disabled {
 }
 .token-raw {
   color: var(--dim);
-  font: 10px/1.2 var(--mono);
+  font: 11px/1.2 var(--mono);
   letter-spacing: 0.02em;
 }
 .token-desc.keyword,
@@ -1253,7 +1282,7 @@ button:disabled {
 }
 .run-duration {
   color: #969893;
-  font: 10px var(--mono);
+  font: 11px var(--mono);
 }
 .run-duration:empty {
   display: none;
@@ -1267,7 +1296,7 @@ button:disabled {
   border: 0;
   background: transparent;
   color: #a7a9a5;
-  font-size: 11px;
+  font-size: 12px;
 }
 .console-input-toggle:hover,
 .console-input-toggle.open {
@@ -1303,7 +1332,7 @@ button:disabled {
 }
 .input-caption span {
   color: #999a96;
-  font-size: 11px;
+  font-size: 12px;
 }
 .input-field {
   display: flex;
@@ -1333,7 +1362,7 @@ button:disabled {
   border: 0;
   background: transparent;
   color: #a6a7a3;
-  font-size: 11px;
+  font-size: 12px;
 }
 .input-clear:hover {
   color: #fff;
@@ -1357,7 +1386,7 @@ button:disabled {
 }
 .prompt-kicker {
   color: #9c9d99;
-  font: 10px var(--mono);
+  font: 11px var(--mono);
 }
 .prompt-caption label {
   color: #d1d2ce;
@@ -1394,7 +1423,7 @@ button:disabled {
   border: 0;
   background: transparent;
   color: #b8bab6;
-  font-size: 11px;
+  font-size: 12px;
 }
 .prompt-controls .prompt-send:hover {
   color: #fff;
@@ -1417,11 +1446,11 @@ button:disabled {
 }
 .problem-main strong {
   color: var(--error);
-  font: 600 11px var(--mono);
+  font: 600 12px var(--mono);
 }
 .problem-location {
   color: #999b97;
-  font: 10px var(--mono);
+  font: 11px var(--mono);
 }
 .problem-main p {
   margin: 6px 0 0;
@@ -1431,7 +1460,7 @@ button:disabled {
 }
 .problem-main small {
   color: var(--muted);
-  font: 10px var(--mono);
+  font: 11px var(--mono);
 }
 .problem button,
 .problem-shortcut {
@@ -1440,7 +1469,7 @@ button:disabled {
   border-radius: 3px;
   background: transparent;
   color: var(--secondary);
-  font-size: 11px;
+  font-size: 12px;
   white-space: nowrap;
 }
 .problem button:hover,
@@ -1463,7 +1492,7 @@ button:disabled {
   border-top: 1px solid var(--border);
   background: #202123;
   color: #9e9f9b;
-  font: 10px var(--mono);
+  font: 11px var(--mono);
 }
 .status-main,
 .status-meta {
@@ -1498,7 +1527,7 @@ button:disabled {
 }
 #status-label {
   color: #c4c5c1;
-  font: 550 10px var(--mono);
+  font: 550 11px var(--mono);
 }
 #status-message {
   overflow: hidden;
@@ -1517,7 +1546,7 @@ button:disabled {
   border: 0;
   background: transparent;
   color: #989b97;
-  font: 10px var(--sans);
+  font: 11px var(--sans);
 }
 .keymap-trigger:hover {
   color: #e2e3df;
@@ -1552,7 +1581,7 @@ button:disabled {
 }
 .dialog-context {
   color: #aaa9a5;
-  font: 10px var(--mono);
+  font: 11px var(--mono);
 }
 .hai-dialog h2 {
   margin: 11px 0 8px;
@@ -1582,7 +1611,7 @@ button:disabled {
   gap: 8px;
   margin: 0 0 18px;
   color: #b7b8b5;
-  font-size: 11px;
+  font-size: 12px;
 }
 .dialog-file-field input {
   width: 100%;
@@ -1632,7 +1661,7 @@ button:disabled {
 .keymap-section h3 {
   margin: 16px 0 7px;
   color: #9fa19c;
-  font: 570 10px var(--mono);
+  font: 570 11px var(--mono);
 }
 .keymap-section dl {
   margin: 0;
@@ -1661,12 +1690,12 @@ button:disabled {
   border: 0;
   background: transparent;
   color: #cececb;
-  font: 11px var(--mono);
+  font: 12px var(--mono);
   white-space: nowrap;
 }
 .shortcut-or {
   color: #8e8f8b;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 /* Welcome screen */
@@ -1856,9 +1885,6 @@ body.boot-error .boot-status {
   .toolbar-groups {
     flex-wrap: wrap;
   }
-  .workbench {
-    grid-template-rows: minmax(0, 1.3fr) minmax(175px, 0.9fr);
-  }
 }
 @media (max-width: 740px) {
   .app-shell {
@@ -1995,7 +2021,8 @@ body.boot-error .boot-status {
     height: 100%;
     min-height: 0;
   }
-  .pane-resizer {
+  .pane-resizer,
+  .details-resizer {
     display: none;
   }
   .workbench[data-mobile-view="code"] .inspector-pane,
@@ -2148,7 +2175,7 @@ body.boot-error .boot-status {
   }
   .action-cluster .btn {
     padding: 0 4px;
-    font-size: 11px;
+    font-size: 12px;
     gap: 5px;
   }
   .inspector-tabs {
@@ -2176,7 +2203,7 @@ body.boot-error .boot-status {
   .keymap-trigger {
     min-height: 44px;
     padding: 0 2px;
-    font-size: 11px;
+    font-size: 12px;
   }
   .status-meta {
     gap: 11px;
@@ -2303,4 +2330,23 @@ body.boot-error .boot-status {
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* Wider invisible grab area for the thin splitters */
+.pane-resizer,
+.details-resizer {
+  position: relative;
+}
+.pane-resizer::after,
+.details-resizer::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+}
+.pane-resizer:not(.console-resizer)::after {
+  inset: 0 -4px;
+}
+.console-resizer::after,
+.details-resizer::after {
+  inset: -4px 0;
 }

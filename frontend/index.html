@@ -291,7 +291,7 @@
           </button>
         </nav>
 
-        <main class="workbench" id="workbench" style="--source-share: 64%">
+        <main class="workbench" id="workbench" style="--source-share: 64%; --console-share: 30%">
           <section
             aria-label="LOLCODE source editor"
             class="source-pane"
@@ -350,7 +350,7 @@
             id="pane-resizer"
             role="separator"
             tabindex="0"
-            title="Drag to resize · Arrow keys adjust"
+            title="Drag to resize · Arrow keys adjust · Double-click to reset"
           ></div>
 
           <section
@@ -495,7 +495,20 @@
                   Analyze the program to explore its structure.
                 </div>
               </div>
-              <div class="node-details" hidden id="node-details"></div>
+              <div
+              aria-controls="node-details"
+              aria-label="Resize node details"
+              aria-orientation="horizontal"
+              aria-valuemax="70"
+              aria-valuemin="15"
+              aria-valuenow="27"
+              class="details-resizer"
+              id="details-resizer"
+              role="separator"
+              tabindex="0"
+              title="Drag to resize · Arrow keys adjust · Double-click to reset"
+            ></div>
+            <div class="node-details" hidden id="node-details"></div>
             </div>
 
             <div
@@ -533,6 +546,19 @@
               <div class="data-scroll" id="symbol-surface"></div>
             </div>
           </section>
+
+          <div
+            aria-label="Resize inspector and console"
+            aria-orientation="horizontal"
+            aria-valuemax="70"
+            aria-valuemin="12"
+            aria-valuenow="30"
+            class="pane-resizer console-resizer"
+            id="console-resizer"
+            role="separator"
+            tabindex="0"
+            title="Drag to resize · Arrow keys adjust · Double-click to reset"
+          ></div>
 
           <section
             aria-label="Execution output and diagnostics"
