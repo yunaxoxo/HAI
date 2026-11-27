@@ -1274,14 +1274,26 @@ async function loadSelectedSample(value){
   sampleTrigger.focus();
 }
 $('#open').addEventListener('click',()=>{closeSampleMenu();$('#file').click();});
+// Open accepts several files: the first may reuse a clean tab (updateSource), the rest always get their own tab.
 $('#file').addEventListener('change',async event=>{
-  const file=event.target.files?.[0];if(!file)return;
-  try {
-    if(file.size>90_000)throw new Error('Choose a file smaller than 90 KB.');
-    if(!/\.(lol|txt)$/i.test(file.name))throw new Error('Choose a .lol or .txt source file.');
-    updateSource(await file.text(),file.name);
-  }catch(error){setStatus('FILE ERROR',error.message,'error');}
-  finally {event.target.value='';}
+  const files=[...(event.target.files||[])];if(!files.length)return;
+  const skipped=[];let opened=0;
+  for(const file of files){
+    try{
+      if(file.size>90_000)throw new Error('larger than 90 KB');
+      if(!/\.(lol|txt)$/i.test(file.name))throw new Error('not a .lol or .txt file');
+      const text=await file.text();
+      if(opened===0)updateSource(text,file.name);else openDocument(text,file.name);
+      opened++;
+    }catch(error){skipped.push(`${file.name} (${error.message})`);}
+  }
+  event.target.value='';
+  if(skipped.length){
+    const head=opened?`Opened ${opened} of ${files.length} files. `:'';
+    setStatus('FILE ERROR',`${head}Skipped ${skipped.join(', ')}.`,'error');
+  }else if(opened>1){
+    setStatus('READY',`Opened ${opened} files.`,'success');
+  }
 });
 $('#download').addEventListener('click',save);
 $('#doc-new').addEventListener('click',newDocument);
