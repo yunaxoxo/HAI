@@ -6,7 +6,7 @@ OBTW
     Stdin Inputs: None
     ------------------------------------------------------------------------
     WHAT SHOULD HAPPEN:
-    Expected Error: SyntaxError on line 5 at token "I_HAS_A"
+    Expected Error: SyntaxError on line 18 at token "I_HAS_A"
     ------------------------------------------------------------------------
     IF IT DOES NOT HAPPEN — WHAT TO CHECK:
     Check Parser.parse_statement() in parser.py.

@@ -6,7 +6,7 @@ OBTW
     Stdin Inputs: None
     ------------------------------------------------------------------------
     WHAT SHOULD HAPPEN:
-    Expected Error: SyntaxError on line 2 at nested "ALL_OF"
+    Expected Error: SyntaxError on line 15 at nested "ALL_OF"
     ------------------------------------------------------------------------
     IF IT DOES NOT HAPPEN — WHAT TO CHECK:
     Check Parser.parse_infinite_boolean() in parser.py.
