@@ -441,7 +441,7 @@ class Parser:
 
         if token[0] == "I_HAS_A":
             raise SyntaxError(#self explanatory
-                f"Line {token[2]}:Variable declarations ('I HAS A') are only allowed inside WAZZUP ... BUHBYE.")
+                f"Line {token[2]}: Variable declarations ('I HAS A') are only allowed inside WAZZUP ... BUHBYE.")
         #identifiers
         if self.is_identifier_token():
             offset = 2 if token[0] in ("R", "A") else 1

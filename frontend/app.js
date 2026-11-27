@@ -176,6 +176,27 @@ function clearDiagnostics() {
   state.diagnosticMarkers = [];
   editor.clearGutter('diagnostic-gutter');
 }
+// One calm "what to try" line for the errors students hit most; unknown messages get no hint.
+const ERROR_HINTS = [
+  [/Cannot convert '.*' to a number/, 'Input from GIMMEH always arrives as text. Type digits only (like 42) before using it in math.'],
+  [/Cannot implicitly convert NOOB/, 'That variable has no value yet. Give it one with ITZ or R before using it in math.'],
+  [/Division by zero|Modulo by zero/, 'The second number was 0. Check it first, for example with BOTH SAEM y AN 0.'],
+  [/Undefined variable: (\w+)/, 'Declare it first with I HAS A $1 inside WAZZUP ... BUHBYE.'],
+  [/only allowed inside WAZZUP/, 'Move that I HAS A line up into the WAZZUP ... BUHBYE block right after HAI.'],
+  [/already declared/, 'Each variable is declared once. Use R to change its value later.'],
+  [/already defined/, 'Each function name can be defined once. Rename one of them.'],
+  [/Undefined function/, 'Define it with HOW IZ I ... IF U SAY SO before calling it.'],
+  [/expects \d+ argument/, 'Check that the call passes one YR value for each parameter.'],
+  [/No input left for GIMMEH/, 'The program asked for more input than was given. Add values under Input values, one per line.'],
+  [/Unterminated YARN/, 'Close the string with a second " on the same line.'],
+  [/Expected 'MKAY'/, 'Close ALL OF and ANY OF lists with MKAY.'],
+  [/Expected '\+' between VISIBLE/, 'Separate the parts of a VISIBLE line with +.'],
+  [/not allowed outside loops/, 'GTFO only works inside a loop, a WTF? block or a function.'],
+];
+function friendlyHint(message) {
+  for (const [pattern, hint] of ERROR_HINTS) { const m = pattern.exec(message); if (m) return hint.replace('$1', m[1] || ''); }
+  return '';
+}
 function setDiagnostics(list) {
   state.diagnostics = list.filter(Boolean);
   clearDiagnostics();
@@ -224,6 +245,8 @@ function renderProblems() {
     const locationPrefix = Number.isInteger(d.line) ? new RegExp(`^Line\\s+${d.line}(?:,\\s*column\\s+\\d+)?\\s*:\\s*`, 'i') : null;
     const concise = locationPrefix ? message.replace(locationPrefix, '') : message;
     main.append(header,el('p','',concise));
+    const hint = friendlyHint(concise);
+    if (hint) main.append(el('p','problem-hint',hint));
     row.append(main);
     if (Number.isInteger(d.line)) {
       const go = el('button','problem-jump','Go to line');
@@ -247,7 +270,7 @@ function renderOutput() {
     pre.append(state.output.slice(at));
     area.append(pre);
   }
-  else if (!state.waiting && !state.diagnostics.length) area.append(el('div','console-empty','Run a program to see its output.'));
+  else if (!state.waiting && !state.diagnostics.length) area.append(el('div','console-empty','Press Run to see your output.'));
   if (state.waiting) {
     const form = el('form','prompt-row');
     form.setAttribute('aria-label','Program input');
@@ -271,6 +294,15 @@ function renderOutput() {
   if (!state.output && state.diagnostics.length) {
     const link = el('button','problem-shortcut','View diagnostics');
     link.type='button'; link.addEventListener('click',()=>selectConsole('problems')); area.append(link);
+  } else if (state.output && state.diagnostics.length) {
+    const d = state.diagnostics[0], banner = el('div','error-banner');
+    const text = String(d.message || 'Unknown error').replace(/^Line\s+\d+(?:,\s*column\s+\d+)?\s*:\s*/i, '');
+    banner.append(el('strong','',`${String(d.stage || 'error').toUpperCase()} ERROR`), el('p','',text));
+    const hint = friendlyHint(text);
+    if (hint) banner.append(el('p','error-banner-hint',hint));
+    const more = el('button','problem-shortcut','View diagnostics'); more.type='button';
+    more.addEventListener('click',()=>selectConsole('problems'));
+    banner.append(more); area.append(banner);
   }
 }
 function clearResults(silent = false) {
@@ -328,6 +360,12 @@ function saveActiveDoc() {
   for (const field of DOC_FIELDS) doc[field] = state[field];
   doc.cm = editor.getDoc();
 }
+function revealActiveTab() {
+  const strip = $('#doc-tabs'), tab = strip.querySelector('.doc-tab.active'); if (!tab) return;
+  const s = strip.getBoundingClientRect(), t = tab.getBoundingClientRect();
+  if (t.left < s.left) strip.scrollLeft -= s.left - t.left;
+  else if (t.right > s.right) strip.scrollLeft += t.right - s.right;
+}
 function renderTabs() {
   const strip = $('#doc-tabs'); strip.replaceChildren();
   for (const doc of state.documents) {
@@ -342,9 +380,11 @@ function renderTabs() {
     close.setAttribute('aria-label', `Close ${doc.filename}`);
     close.addEventListener('click', () => closeDoc(doc.id));
     tab.append(label, close); strip.append(tab);
-    if (active) requestAnimationFrame(() => tab.scrollIntoView({ block: 'nearest', inline: 'nearest' }));
   }
+  requestAnimationFrame(revealActiveTab);
 }
+// Expand mode, window resizes and the mobile layout all change the strip width without re-rendering the tabs.
+if (window.ResizeObserver) new ResizeObserver(revealActiveTab).observe($('#doc-tabs'));
 function activateDoc(id) {
   if (id === state.activeDocId) return;
   const next = state.documents.find(d => d.id === id); if (!next) return;
@@ -735,7 +775,7 @@ function renderAST() {
   $('#outline-tools').hidden = !state.ast || state.astMode !== 'outline';
   $('#graph-controls').hidden = !state.ast || state.astMode !== 'graph';
   if(!state.ast){
-    root.append(makeEmpty('No tree','Analyze to inspect the program structure.'));
+    root.append(makeEmpty('No tree','Press Structure to see your program as a tree.'));
     $('#node-details').hidden=true;updateAstFindCount([]);return;
   }
   if(state.astMode==='outline')renderOutline();
@@ -747,6 +787,7 @@ function selectAstMode(mode) {
   state.astMode=mode;
   $$('[data-mode]').forEach(b=>{const yes=b.dataset.mode===mode;b.classList.toggle('active',yes);b.setAttribute('aria-pressed',String(yes));});
   renderAST();
+  if(mode==='graph')requestAnimationFrame(fitGraph);  // a wide tree should open whole, not clipped at the right edge
 }
 
 const TOKEN_DESCRIPTIONS = {
@@ -874,7 +915,7 @@ function renderTokens() {
       desc.toLowerCase().includes(q)
     );
   if (!state.tokens.length) {
-    surface.append(el('div', 'table-empty', 'No tokens. Use Tokenize or Analyze to inspect the source.'));
+    surface.append(el('div', 'table-empty', 'No tokens yet. Press Tokenize to see your code split into words.'));
     return;
   }
   if (!filtered.length) {
@@ -933,7 +974,7 @@ function renderTokens() {
 
 function renderSymbols() {
   const surface=$('#symbol-surface');surface.replaceChildren();
-  if(!state.symbols.length){surface.append(el('div','table-empty','Run to inspect variable values.'));return;}
+  if(!state.symbols.length){surface.append(el('div','table-empty','Run your program to see each variable and its value.'));return;}
   const table=el('table','data-table');const head=el('thead');const tr=el('tr');['NAME','TYPE','CURRENT VALUE'].forEach(h=>tr.append(el('th','',h)));head.append(tr);table.append(head);
   const body=el('tbody');
   state.symbols.forEach(s=>{const row=el('tr');row.append(el('td','',s.name),el('td','symbol-type',s.type),el('td','',s.value));body.append(row);});
@@ -1037,11 +1078,12 @@ async function run(fresh=true) {
   state.waiting=Boolean(data.needs_input);
   state.prompt=data.prompt||'GIMMEH';
   $('#symbol-count').textContent=state.symbols.length; $('#symbol-count').hidden=false;
-  $('#run-duration').textContent=`${Math.round(performance.now()-start)} ms`;
+  const elapsed=Math.round(performance.now()-start);
+  $('#run-duration').textContent=`${elapsed} ms`;
   renderOutput();renderSymbols();selectConsole('output');
   if(state.waiting){setDiagnostics([]);setStages('runtime',false,true);setStatus('INPUT NEEDED','');}
-  else if(data.ok){setDiagnostics([]);setStages('runtime');setStatus('EXECUTED','Run complete.', 'success');}
-  else {setDiagnostics([data.error]);setStages(data.error.stage,true);setStatus(`${data.error.stage.toUpperCase()} ERROR`,data.error.message,'error');selectConsole('problems');}
+  else if(data.ok){setDiagnostics([]);setStages('runtime');setStatus('EXECUTED',`KTHXBYE, finished in ${elapsed} ms.`, 'success');}
+  else {setDiagnostics([data.error]);setStages(data.error.stage,true);setStatus(`${data.error.stage.toUpperCase()} ERROR`,data.error.message,'error');renderOutput();selectConsole(state.output?'output':'problems');}
   showMobileView('console');
 }
 function updateSource(value,name='playground.lol') {
@@ -1213,12 +1255,13 @@ function setGraphZoom(value) {
 }
 $('#zoom-out').addEventListener('click',()=>setGraphZoom(state.zoom-.2));
 $('#zoom-in').addEventListener('click',()=>setGraphZoom(state.zoom+.2));
-$('#zoom-fit').addEventListener('click',()=>{
+function fitGraph() {
   const scroll=$('.ast-graph-scroll'),stage=$('.graph-stage');
   if(!scroll||!stage)return;
   const width=parseFloat(stage.style.width),height=parseFloat(stage.style.height);
   setGraphZoom(Math.min(1,(scroll.clientWidth-20)/width,(scroll.clientHeight-20)/height));
-});
+}
+$('#zoom-fit').addEventListener('click',fitGraph);
 $$('[data-inspector]').forEach(b=>b.addEventListener('click',()=>setInspector(b.dataset.inspector)));
 $$('[data-console]').forEach(b=>b.addEventListener('click',()=>selectConsole(b.dataset.console)));
 attachTabKeys('[data-inspector]',b=>setInspector(b.dataset.inspector));
@@ -1290,7 +1333,7 @@ $('#file').addEventListener('change',async event=>{
   event.target.value='';
   if(skipped.length){
     const head=opened?`Opened ${opened} of ${files.length} files. `:'';
-    setStatus('FILE ERROR',`${head}Skipped ${skipped.join(', ')}.`,'error');
+    setStatus(opened ? 'PARTLY OPENED' : 'FILE ERROR',`${head}Skipped ${skipped.join(', ')}.`,opened ? 'warning' : 'error');
   }else if(opened>1){
     setStatus('READY',`Opened ${opened} files.`,'success');
   }
