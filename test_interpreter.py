@@ -106,6 +106,12 @@ class InterpreterTests(unittest.TestCase):
         self.assertEqual(run("VISIBLE I IZ f YR I IZ g YR 4 MKAY AN YR 1 MKAY\n", functions=fns), ["9"])
         self.assertEqual(run("VISIBLE I IZ f YR 1 AN YR I IZ g YR 4\n", functions=fns), ["9"])
 
+    def test_yarn_to_number_accepts_only_digits_hyphen_and_period(self):
+        self.assertEqual(run('VISIBLE SUM OF "-3" AN "1.5"\n'), ["-1.5"])
+        for bad in ("1_000", "1.5e3", "+5", "1.2.3", "-"):
+            with self.subTest(bad=bad), self.assertRaises(RuntimeError):
+                run(f'VISIBLE SUM OF "{bad}" AN 1\n')
+
     def test_it_holds_last_expression(self):
         self.assertEqual(run("SUM OF 2 AN 3\nVISIBLE IT\n"), ["5"])
 

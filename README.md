@@ -40,6 +40,7 @@ On Windows, use the same command (`python -B app.py`, or `py -3 -B app.py`). The
 - **Comparison:** there is no implicit casting, so `5` and `5.0` (or `"5"`) are different.
 - **Switch-case:** a matching `OMG` runs and falls through the following cases until `GTFO`; the `OMGWTF` default runs only when no case matches.
 - **Input:** `GIMMEH` shows a `name? ` prompt, and reading past the end of the input is a runtime error. One statement per line is expected, but a `,` or a second statement on a line is tolerated.
+- **`YARN` to number:** only digits, `-` and `.` are accepted (`"-3"`, `".5"`); `"+5"`, `"1_000"`, `"1e3"` and the empty string are errors, while surrounding spaces from `GIMMEH` are trimmed.
 - **`NUMBAR` to `YARN`:** values are truncated (not rounded) to two decimal places.
 - **Strings:** `YARN` literals support the escapes `:)` (newline), `:>` (tab), `:o` (bell), `:"` (quote) and `::` (colon).
 

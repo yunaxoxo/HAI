@@ -3,6 +3,7 @@
 Run: python interpreter.py source.txt
 """
 
+import re
 import sys
 from functools import wraps
 from lexer import tokenize
@@ -92,11 +93,11 @@ class Interpreter:
             return int(value)
         if isinstance(value, (int, float)):
             return value
-        try:
-            text = str(value).strip()
-            return float(text) if "." in text else int(text)
-        except ValueError:
+        text = str(value).strip()
+        # Spec p.5: only digits, hyphen and period make a YARN numeric (no "+", "_", exponents or non-ASCII digits).
+        if not re.fullmatch(r"-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)", text):
             raise RuntimeError(f"Cannot convert {value!r} to a number.")
+        return float(text) if "." in text else int(text)
 
     # Format a value using LOLCODE literals.
     def display(self, value):
