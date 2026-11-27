@@ -1293,34 +1293,49 @@ $('#explore').addEventListener('click',()=>{
   requestAnimationFrame(()=>editor.refresh());
 });
 $$('.mobile-view').forEach(b=>b.addEventListener('click',()=>showMobileView(b.id.slice(7))));
-const divider=$('#pane-resizer'),workbench=$('#workbench');
-const resize=x=>{
-  if(workbench.classList.contains('expanded'))return;
-  const rect=workbench.getBoundingClientRect();const share=Math.max(30,Math.min(70,Math.round((x-rect.left)/rect.width*100)));
-  workbench.style.setProperty('--source-share',`${share}%`);divider.setAttribute('aria-valuenow',String(share));editor.refresh();
-};
-divider.addEventListener('pointerdown',e=>{if(window.matchMedia('(max-width:740px)').matches)return;e.preventDefault();divider.setPointerCapture(e.pointerId);});
-divider.addEventListener('pointermove',e=>{if(divider.hasPointerCapture(e.pointerId))resize(e.clientX);});
-divider.addEventListener('keydown',e=>{
-  if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();
-  const amount=Number(divider.getAttribute('aria-valuenow'))+(e.key==='ArrowLeft'?-2:e.key==='ArrowRight'?2:0);
-  const share=e.key==='Home'?30:e.key==='End'?70:Math.max(30,Math.min(70,amount));
-  workbench.style.setProperty('--source-share',`${share}%`);divider.setAttribute('aria-valuenow',String(share));editor.refresh();
-});
+const workbench=$('#workbench');
 // Generic splitter: drag, arrow keys (Home/End = limits) and double-click reset.
-function splitter(handle,{axis,min,max,reset,read,apply,keys}){
-  const set=v=>{v=Math.max(min,Math.min(max,Math.round(v)));apply(v);handle.setAttribute('aria-valuenow',String(v));editor.refresh();};
-  handle.addEventListener('pointerdown',e=>{if(window.matchMedia('(max-width:740px)').matches)return;e.preventDefault();handle.setPointerCapture(e.pointerId);handle.classList.add('dragging');document.body.classList.add('is-resizing');});
-  handle.addEventListener('pointermove',e=>{if(handle.hasPointerCapture(e.pointerId))set(read(axis==='x'?e.clientX:e.clientY));});
-  const end=e=>{handle.classList.remove('dragging');document.body.classList.remove('is-resizing');if(handle.hasPointerCapture(e.pointerId))handle.releasePointerCapture(e.pointerId);};
-  handle.addEventListener('pointerup',end);handle.addEventListener('pointercancel',end);
+function splitter(handle,{axis,min,max,reset,read,apply,keys,enabled=()=>true}){
+  const clamp=v=>Math.max(min,Math.min(max,Math.round(v)));
+  const set=v=>{
+    if(!enabled())return;
+    v=clamp(v);
+    apply(v);
+    handle.setAttribute('aria-valuenow',String(v));
+    editor.refresh();
+  };
+  const narrow=()=>window.matchMedia('(max-width:740px)').matches;
+  const stopDragging=e=>{
+    handle.classList.remove('dragging');
+    document.body.classList.remove('is-resizing');
+    if(handle.hasPointerCapture(e.pointerId))handle.releasePointerCapture(e.pointerId);
+  };
+  handle.addEventListener('pointerdown',e=>{
+    if(narrow())return;
+    e.preventDefault();
+    handle.setPointerCapture(e.pointerId);
+    handle.classList.add('dragging');
+    document.body.classList.add('is-resizing');
+  });
+  handle.addEventListener('pointermove',e=>{
+    if(handle.hasPointerCapture(e.pointerId))set(read(axis==='x'?e.clientX:e.clientY));
+  });
+  handle.addEventListener('pointerup',stopDragging);
+  handle.addEventListener('pointercancel',stopDragging);
   handle.addEventListener('dblclick',()=>set(reset));
   handle.addEventListener('keydown',e=>{
-    const cur=Number(handle.getAttribute('aria-valuenow')),step=e.shiftKey?8:2;
-    const next=e.key==='Home'?min:e.key==='End'?max:e.key===keys[0]?cur+step:e.key===keys[1]?cur-step:null;
-    if(next===null)return;e.preventDefault();set(next);
+    const current=Number(handle.getAttribute('aria-valuenow')),step=e.shiftKey?8:2;
+    const next=e.key==='Home'?min:e.key==='End'?max:e.key===keys[0]?current+step:e.key===keys[1]?current-step:null;
+    if(next===null)return;
+    e.preventDefault();
+    set(next);
   });
 }
+// Source/inspector split: share of the workbench width; Right grows the source pane.
+splitter($('#pane-resizer'),{axis:'x',min:30,max:70,reset:64,keys:['ArrowRight','ArrowLeft'],
+  enabled:()=>!workbench.classList.contains('expanded'),
+  read:x=>{const r=workbench.getBoundingClientRect();return (x-r.left)/r.width*100;},
+  apply:v=>workbench.style.setProperty('--source-share',`${v}%`)});
 // Console height: share of the workbench, handle sits above the console so Up grows it.
 splitter($('#console-resizer'),{axis:'y',min:12,max:70,reset:30,keys:['ArrowUp','ArrowDown'],
   read:y=>{const r=workbench.getBoundingClientRect();return (r.bottom-y)/r.height*100;},
@@ -1330,9 +1345,6 @@ const detailsPane=$('#inspector-pane');
 splitter($('#details-resizer'),{axis:'y',min:15,max:70,reset:27,keys:['ArrowUp','ArrowDown'],
   read:y=>{const r=detailsPane.getBoundingClientRect();return (r.bottom-y)/r.height*100;},
   apply:v=>detailsPane.style.setProperty('--details-height',`${v}%`)});
-divider.addEventListener('dblclick',()=>{if(workbench.classList.contains('expanded'))return;workbench.style.setProperty('--source-share','64%');divider.setAttribute('aria-valuenow','64');editor.refresh();});
-divider.addEventListener('pointerup',e=>{if(divider.hasPointerCapture(e.pointerId))divider.releasePointerCapture(e.pointerId);document.body.classList.remove('is-resizing');divider.classList.remove('dragging');});
-divider.addEventListener('pointerdown',()=>{document.body.classList.add('is-resizing');divider.classList.add('dragging');});
 window.addEventListener('resize',()=>editor.refresh());
 window.addEventListener('beforeunload',e=>{if(state.dirty||state.documents.some(d=>d.dirty)){e.preventDefault();e.returnValue='';}});
 document.addEventListener('keydown', e => {
