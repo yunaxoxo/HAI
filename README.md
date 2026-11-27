@@ -48,6 +48,14 @@ Select **Run** to print `8`, **Tokenize** to inspect lexical tokens, or **Struct
 
 On Windows, use the same command (`python -B app.py`, or `py -3 -B app.py`). The workbench runs entirely offline: CodeMirror and the icons are bundled, so no internet connection or `pip install` is needed.
 
+## Design decisions
+
+- **One implementation of the language.** All lexing, parsing and execution live in Python; the browser only renders results. A second lexer in JavaScript would have drifted from the first, and everything the UI shows is testable from Python.
+- **The spec wins, and every exception is written down.** Where the course spec and its official test programs disagree, the behavior is a deliberate, documented choice (see the notes below): `MKAY` is optional on a flat call because the official `10_functions.lol` omits it, and `VISIBLE` prints a `NOOB` instead of failing because that same program prints the result of a `GTFO` function.
+- **Strict where the spec is strict.** Comparisons never cast (`5` is not `5.0`), a `YARN` becomes a number only if it holds digits, `-` and `.`, and only expression statements set `IT`. Each rule has a regression test.
+- **Teaching lives in the UI layer.** Interpreter errors stay short and exact so tests can pin them; the "what to try" hints are matched on those messages in the frontend. Changing the wording of a hint never touches the language.
+- **Failures keep the work.** A failed run keeps its earlier output next to the error, and a partly failed multi-file open still opens the files that were valid.
+
 ## Language behavior notes
 
 - **Integer division:** `QUOSHUNT OF` on two `NUMBR`s returns a `NUMBR` truncated toward zero (`QUOSHUNT OF -7 AN 2` is `-3`); if either operand is a `NUMBAR` the result is a `NUMBAR`.
