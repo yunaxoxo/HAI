@@ -11,7 +11,7 @@
   --text: #e6e6e4;
   --secondary: #d0d0ce;
   --muted: #aaa9a6;
-  --dim: #8f908c;
+  --dim: #96978f;
   --accent: #c5cbc8;
   --warning: #caa980;
   --error: #df9b94;
@@ -474,7 +474,7 @@ body.is-resizing iframe {
 }
 .CodeMirror-linenumber {
   padding: 0 12px 0 8px;
-  color: var(--faint);
+  color: var(--dim);
   font-size: 12px;
 }
 .CodeMirror-lines {
@@ -900,7 +900,7 @@ body.is-resizing iframe {
   cursor: default;
 }
 .details-divider {
-  color: var(--faint);
+  color: var(--dim);
 }
 .details-grid {
   margin: 12px 0 0;
@@ -1011,7 +1011,7 @@ body.is-resizing iframe {
 }
 .node-field::after {
   content: " ›";
-  color: var(--faint);
+  color: var(--dim);
 }
 .graph-node.has-children {
   padding-right: 30px;
