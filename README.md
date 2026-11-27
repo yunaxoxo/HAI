@@ -26,7 +26,7 @@ VISIBLE SUM OF 5 AN 3
 KTHXBYE
 ```
 
-Select **Run** to print `8`, **Tokenize** to inspect lexical tokens, or **Analyze** to explore the AST.
+Select **Run** to print `8`, **Tokenize** to inspect lexical tokens, or **Structure** to explore the AST.
 
 On Windows, use the same command (`python -B app.py`, or `py -3 -B app.py`). The workbench runs entirely offline: CodeMirror and the icons are bundled, so no internet connection or `pip install` is needed.
 

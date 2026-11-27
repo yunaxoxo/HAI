@@ -62,6 +62,7 @@
         <div class="boot-heading">
           <div class="boot-name" id="boot-name">HAI<span>.</span></div>
           <div class="boot-subtitle" id="boot-subtitle">LOLCODE workbench</div>
+          <div class="boot-tagline">Write LOLCODE, run it, and see how it is read.</div>
         </div>
         <div class="boot-bottom">
           <div class="boot-progress" aria-hidden="true"><span></span></div>
@@ -201,7 +202,7 @@
             <button
               class="btn action"
               id="tokenize"
-              title="Inspect lexical tokens"
+              title="Split your code into tokens, the words the language is made of"
             >
               <svg
                 class="tool-icon"
@@ -221,7 +222,7 @@
             <button
               class="btn action"
               id="analyze"
-              title="Generate AST and source map"
+              title="See how your code is read as a tree (the AST)"
             >
               <svg
                 class="tool-icon"
@@ -238,7 +239,7 @@
                 <circle cx="6" cy="18" r="3" />
                 <circle cx="18" cy="6" r="3" />
                 <path d="M18 9a6 6 0 0 1-6 6H6" /></svg
-              ><span>Analyze</span>
+              ><span>Structure</span>
             </button>
             <button
               class="btn run"
@@ -297,7 +298,7 @@
             class="source-pane"
             id="source-pane"
           >
-            <div class="pane-header source-header">
+            <div class="pane-header source-header visually-hidden">
               <div aria-label="Active source file" class="document-status">
                 <span class="document-name" id="filename">playground.lol</span>
                 <span
@@ -371,6 +372,7 @@
                   data-inspector="ast"
                   id="ast-tab"
                   role="tab"
+                  title="Your program as a tree"
                   tabindex="0"
                 >
                   AST <span class="tab-counter" id="ast-count" hidden></span>
@@ -382,6 +384,7 @@
                   data-inspector="tokens"
                   id="tokens-tab"
                   role="tab"
+                  title="Your code split into words"
                   tabindex="-1"
                 >
                   Tokens
@@ -394,6 +397,7 @@
                   data-inspector="symbols"
                   id="symbols-tab"
                   role="tab"
+                  title="Variables and their values"
                   tabindex="-1"
                 >
                   Symbols
@@ -492,7 +496,7 @@
               </div>
               <div class="ast-surface" id="ast-surface">
                 <div class="empty-state">
-                  Analyze the program to explore its structure.
+                  Press Structure to see your program as a tree.
                 </div>
               </div>
               <div
@@ -605,9 +609,9 @@
                 aria-expanded="false"
                 class="text-action console-input-toggle"
                 id="toggle-input"
-                title="Show or hide preset input values"
+                title="Values for GIMMEH, one per line, used when the program asks for input"
               >
-                Preset input
+                Input values
                 <span aria-hidden="true" class="toggle-caret"></span>
               </button>
             </div>
