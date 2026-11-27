@@ -274,6 +274,7 @@ def run_file(name, inputs=()):
 MENU = "1. Compute age\n2. Compute tip\n3. Compute square area\n0. Exit\nChoice: \n"
 
 
+@unittest.skipUnless(OFFICIAL.is_dir(), "the official course programs are not part of the public repository")
 class OfficialSuiteTests(unittest.TestCase):
     """Exact output of the ten official test programs (project-testcases-fixed/)."""
 

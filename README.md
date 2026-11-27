@@ -2,9 +2,27 @@
 
 **An interactive LOLCODE interpreter and language workbench.**
 
+[![tests](https://github.com/yunaxoxo/HAI/actions/workflows/tests.yml/badge.svg)](https://github.com/yunaxoxo/HAI/actions/workflows/tests.yml)
+
+[**Live demo**](https://hai-lolcode-interpreter.vercel.app) · [Architecture](docs/ARCHITECTURE.md) · [Language behavior notes](#language-behavior-notes)
+
+![The HAI workbench: LOLCODE editor, AST outline and program output side by side](docs/images/workbench.png)
+
 HAI was developed as a course requirement for **CMSC 124 (Design and Implementation of Programming Languages)** at the **University of the Philippines Los Baños (UPLB)**.
 
 Designed to explore how programming languages work under the hood, HAI lets users write, execute, and debug LOLCODE programs while inspecting lexical tokens, an abstract syntax tree (AST), variables in a symbol table, and errors linked to their source code. It brings programming-language theory and practical implementation together in one accessible, interactive environment.
+
+## Highlights
+
+- **Hand-written language pipeline.** The lexer, a recursive-descent parser and the interpreter are plain Python (about 1,600 lines, no parser generators). The lexer needs only the standard `re` module.
+- **See how your program is read.** Tokens, a searchable AST outline, a zoomable graph and a symbol table sit next to the editor, and clicking a node highlights its source.
+- **Errors that help.** Every diagnostic is linked to its line, and common mistakes (division by zero, an undeclared variable, text from `GIMMEH` used as a number) come with a one-line "what to try". A failed run keeps its earlier output visible.
+- **Tested.** 146 automated tests run on every push and cover the lexer, parser, interpreter, source mapping and the web API. Ten more check the course's official test programs when those files are present locally.
+- **Runs anywhere.** Local use needs only Python 3 and works offline; the same code is deployed to Vercel through a small Flask adapter.
+
+| Errors with a next step | The AST as a graph |
+| --- | --- |
+| ![A runtime error shows the earlier output, the problem and a hint](docs/images/error-hints.png) | ![The AST graph of a small loop program](docs/images/ast-graph.png) |
 
 ## Getting started
 
@@ -29,6 +47,14 @@ KTHXBYE
 Select **Run** to print `8`, **Tokenize** to inspect lexical tokens, or **Structure** to explore the AST.
 
 On Windows, use the same command (`python -B app.py`, or `py -3 -B app.py`). The workbench runs entirely offline: CodeMirror and the icons are bundled, so no internet connection or `pip install` is needed.
+
+## Design decisions
+
+- **One implementation of the language.** All lexing, parsing and execution live in Python; the browser only renders results. A second lexer in JavaScript would have drifted from the first, and everything the UI shows is testable from Python.
+- **The spec wins, and every exception is written down.** Where the course spec and its official test programs disagree, the behavior is a deliberate, documented choice (see the notes below): `MKAY` is optional on a flat call because the official `10_functions.lol` omits it, and `VISIBLE` prints a `NOOB` instead of failing because that same program prints the result of a `GTFO` function.
+- **Strict where the spec is strict.** Comparisons never cast (`5` is not `5.0`), a `YARN` becomes a number only if it holds digits, `-` and `.`, and only expression statements set `IT`. Each rule has a regression test.
+- **Teaching lives in the UI layer.** Interpreter errors stay short and exact so tests can pin them; the "what to try" hints are matched on those messages in the frontend. Changing the wording of a hint never touches the language.
+- **Failures keep the work.** A failed run keeps its earlier output next to the error, and a partly failed multi-file open still opens the files that were valid.
 
 ## Language behavior notes
 
