@@ -2,6 +2,8 @@
 
 **An interactive LOLCODE interpreter and language workbench.**
 
+[![tests](https://github.com/yunaxoxo/HAI/actions/workflows/tests.yml/badge.svg)](https://github.com/yunaxoxo/HAI/actions/workflows/tests.yml)
+
 [**Live demo**](https://hai-lolcode-interpreter.vercel.app) · [Architecture](docs/ARCHITECTURE.md) · [Language behavior notes](#language-behavior-notes)
 
 ![The HAI workbench: LOLCODE editor, AST outline and program output side by side](docs/images/workbench.png)
@@ -15,7 +17,7 @@ Designed to explore how programming languages work under the hood, HAI lets user
 - **Hand-written language pipeline.** The lexer, a recursive-descent parser and the interpreter are plain Python (about 1,600 lines, no parser generators). The lexer needs only the standard `re` module.
 - **See how your program is read.** Tokens, a searchable AST outline, a zoomable graph and a symbol table sit next to the editor, and clicking a node highlights its source.
 - **Errors that help.** Every diagnostic is linked to its line, and common mistakes (division by zero, an undeclared variable, text from `GIMMEH` used as a number) come with a one-line "what to try". A failed run keeps its earlier output visible.
-- **Tested.** 156 automated tests cover the lexer, parser, interpreter, source mapping and the web API, including the official course test programs.
+- **Tested.** 146 automated tests run on every push and cover the lexer, parser, interpreter, source mapping and the web API. Ten more check the course's official test programs when those files are present locally.
 - **Runs anywhere.** Local use needs only Python 3 and works offline; the same code is deployed to Vercel through a small Flask adapter.
 
 | Errors with a next step | The AST as a graph |
