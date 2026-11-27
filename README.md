@@ -2,9 +2,25 @@
 
 **An interactive LOLCODE interpreter and language workbench.**
 
+[**Live demo**](https://hai-lolcode-interpreter.vercel.app) · [Architecture](docs/ARCHITECTURE.md) · [Language behavior notes](#language-behavior-notes)
+
+![The HAI workbench: LOLCODE editor, AST outline and program output side by side](docs/images/workbench.png)
+
 HAI was developed as a course requirement for **CMSC 124 (Design and Implementation of Programming Languages)** at the **University of the Philippines Los Baños (UPLB)**.
 
 Designed to explore how programming languages work under the hood, HAI lets users write, execute, and debug LOLCODE programs while inspecting lexical tokens, an abstract syntax tree (AST), variables in a symbol table, and errors linked to their source code. It brings programming-language theory and practical implementation together in one accessible, interactive environment.
+
+## Highlights
+
+- **Hand-written language pipeline.** The lexer, a recursive-descent parser and the interpreter are plain Python (about 1,600 lines, no parser generators). The lexer needs only the standard `re` module.
+- **See how your program is read.** Tokens, a searchable AST outline, a zoomable graph and a symbol table sit next to the editor, and clicking a node highlights its source.
+- **Errors that help.** Every diagnostic is linked to its line, and common mistakes (division by zero, an undeclared variable, text from `GIMMEH` used as a number) come with a one-line "what to try". A failed run keeps its earlier output visible.
+- **Tested.** 156 automated tests cover the lexer, parser, interpreter, source mapping and the web API, including the official course test programs.
+- **Runs anywhere.** Local use needs only Python 3 and works offline; the same code is deployed to Vercel through a small Flask adapter.
+
+| Errors with a next step | The AST as a graph |
+| --- | --- |
+| ![A runtime error shows the earlier output, the problem and a hint](docs/images/error-hints.png) | ![The AST graph of a small loop program](docs/images/ast-graph.png) |
 
 ## Getting started
 
