@@ -21,6 +21,13 @@ COMPARISON_OPERATORS = {
     "BOTH_SAEM", "DIFFRINT"
 }
 
+def describe_found(token) -> str:
+    """How an unexpected token reads in an error message (a raw newline would print as a blank)."""
+    if not token:
+        return "EOF"
+    return "the end of the line" if token[0] == "NEWLINE" else f"'{token[1]}' ({token[0]})"
+
+
 # Build this once instead of checking every operator group for each value.
 EXPRESSION_STARTERS = (
     ARITHMETIC_OPERATORS | BOOLEAN_OPERATORS | INFINITE_OPERATORS
@@ -329,14 +336,12 @@ class Parser:
             if token and (token[0] == "AN" or token[1] == "AN"):
                 return self.advance()
             line = token[2] if token else "EOF"
-            found = f"'{token[1]}' ({token[0]})" if token else "EOF"
-            raise SyntaxError(message or f"Line {line}: Expected 'AN', but found {found}")
+            raise SyntaxError(message or f"Line {line}: Expected 'AN', but found {describe_found(token)}")
         token = self.peek()
         if token and (token[0] == expected_type or token[1] == expected_type):
             return self.advance()
         line = token[2] if token else "EOF"
-        found = f"'{token[1]}' ({token[0]})" if token else "EOF"
-        msg = message or f"Line {line}: Expected '{expected_type}', but found {found}"
+        msg = message or f"Line {line}: Expected '{expected_type}', but found {describe_found(token)}"
         raise SyntaxError(msg)
 
     def skip_newlines(self) -> int:
